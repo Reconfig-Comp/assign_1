@@ -2,7 +2,7 @@
 Parser module: Can be used to parse any .vm file and store the information in a dictionary
 which can be utilised for generating a graph.
 
-Last updated: 11th February 2021
+Last updated: 12th February 2021
 """
 
 
@@ -20,11 +20,11 @@ class my_dictionary(dict):
 
 # Split line into words
 def splitline(line):
-    fData[lineNo] = fData[lineNo].replace(',', ' , ')
-    fData[lineNo] = fData[lineNo].replace(';', ' ; ')
-    fData[lineNo] = fData[lineNo].replace('(', ' ( ')
-    fData[lineNo] = fData[lineNo].replace(')', ' ) ')
-    lineData = fData[lineNo].split()
+    line = line.replace(',', ' , ')
+    line = line.replace(';', ' ; ')
+    line = line.replace('(', ' ( ')
+    line = line.replace(')', ' ) ')
+    lineData = line.split()
     return lineData
 
 
