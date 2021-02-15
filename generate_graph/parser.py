@@ -4,6 +4,8 @@ which can be utilised for generating a graph.
 
 Last updated: 14th February 2021
 """
+# os module to obtain current working directory
+import os
 
 # Importing RegEx package to perform search operations in string
 import re
@@ -13,8 +15,9 @@ import graph_util as gu
 
 
 # Taking file path as input from the user
-filePath = input("Enter the path of file you wish to parse: ")
-#filePath = '../test_cases/vm_files/c17.vm'
+#filePath = input("Enter the path of file you wish to parse: ")
+cwd = os.getcwd()
+filePath = cwd + '/test_cases/vm_files/c17.vm'
 
 
 # Reading the file via the file path specified
@@ -29,7 +32,6 @@ ioData = {'input': [], 'output': []}    # Primary input & output
 inbuf = {}    # Input buffer mapping (Primary Input : wire)
 outbuf = {}   # Output buffer mapping (Primary Output : wire)
 graph = gu.DirectedGraph() # Graph
-
 
 while 1:
 
