@@ -52,7 +52,7 @@ class VerilogGraph:
             Binary string of length 4*n. Eg: '000110101011'
         """
         bi_str = bin(int(hex_str, 16))[2:]
-        if len(hex_str) == 1:
+        if len(hex_str) == 1 or len(bi_str)%4 == 0:
             return bi_str
         else:
             return (4 - len(bi_str)%4)*'0' + bi_str
@@ -198,10 +198,19 @@ class VerilogGraph:
 # for unit testing this module
 if __name__ == '__main__':
     vg = VerilogGraph()
-    vg.addPrimeIo('ip1', 'o')
+    # inputs
+    vg.addPrimeIo('ip0', 'i')
+    vg.addPrimeIo('ip1', 'i')
     vg.addPrimeIo('ip2', 'i')
+    vg.addPrimeIo('ip3', 'i')
+    vg.addPrimeIo('ip4', 'i')
+
+    # outputs
+    vg.addPrimeIo('y0', 'o')
+    vg.addPrimeIo('y1', 'o')
     
-    vg.addCfgBlck('cfg1', ('ip1', 'ip2'), 'out1', 'b')
+    vg.addCfgBlck('cfg1', ('ip0', 'ip1', 'ip2'), 'y0', 'ab')
+    vg.addCfgBlck('cfg2', ('ip3', 'y0', 'ip4'), 'y1', '13')
 
     vg.printPrimeIos(True)
     print(10*'-')
