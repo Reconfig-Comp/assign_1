@@ -15,19 +15,32 @@ class VerilogGraph:
                 {'primeIo_id': 'io_type', 1|0}
             - cfg_blck node : 
                 {'cfgBlck_id': [('ip0', 'ip1', 'ip3'), ('op', 1|0), 'cfg_string']}
+        __prime_ip : list
+            list of primary inputs in the VerilogGraph. Private attribute used to
+            better process the cfg_blcks
 
         Methods
         -------
             Public:
-                * addPrimeIo(io_type, io_id)
-                * addCfgBlck(inputs, output, config)
-                * listPrimeIos()
-                * listCfgBlcks()
-                * printPrimeIos()
-                * printCfgBlcks()
+                Graph creation methods
+                    * addPrimeIo(io_type, io_id)
+                    * addCfgBlck(inputs, output, config)
+                    * listPrimeIos()
+                    * listCfgBlcks()
+                    * printPrimeIos()
+                    * printCfgBlcks()
+                Graph simulation methods
+                    * setIpValue()
+                    * simulate()
+
             Private:
-                * __init__()
-                * __convertToBinaryStr(hex_str)
+                    * __init__()
+                Graph creation methods
+                    * __convertToBinaryStr(hex_str)
+                Graph simulation methods
+                    * __processSetup()
+                    * __processCfgBlck()
+
     """
 
     def __init__(self):
@@ -37,6 +50,7 @@ class VerilogGraph:
             Instantiates an empty dictionary.
         """
         self.dGrph = {}
+        self.__prime_ip = []
     
     def __convertToBinaryStr(self, hex_str):
         """
@@ -52,7 +66,7 @@ class VerilogGraph:
             Binary string of length 4*n. Eg: '000110101011'
         """
         bi_str = bin(int(hex_str, 16))[2:]
-        if len(hex_str) == 1:
+        if len(hex_str) == 1 or len(bi_str)%4 == 0:
             return bi_str
         else:
             return (4 - len(bi_str)%4)*'0' + bi_str
@@ -81,6 +95,9 @@ class VerilogGraph:
     def addCfgBlck(self, cfg_id, inputs, output, config):
         """
             Adds a node of type cfg_blck to the graph.
+            Note: For faster simulation, the 'config' is stored in the reverse format
+            of what is given as input. But while using function: printCfgBlcks(), 
+            the actual 'config' is shown.
 
 
             Parameters
@@ -109,21 +126,21 @@ class VerilogGraph:
             print('cfg_id already exists. No node added.')
             return
         
-        self.dGrph[cfg_id] = [inputs, (output, None), self.__convertToBinaryStr(config)]
+        self.dGrph[cfg_id] = [inputs, [output, None], self.__convertToBinaryStr(config)[::-1]]
 
-    def listPrimeIos(self, showBitValue = False):
+    def listPrimeIos(self, show_bit_value = False):
         """
             Parameters
             ----------
-            showBitValue : boolean (default: False)
+            show_bit_value : boolean (default: False)
                 If set True, also returns bit value (0 | 1) for each of the node.
             Returns
             -------
             default: List of tuples in format (prime_io-node-IDs, io_type).
-            if showBitValue is True: List of tuples in format (prime_io-node-IDs, io_type, [1 | 0]).
+            if show_bit_value is True: List of tuples in format (prime_io-node-IDs, io_type, [1 | 0]).
         """
         lst = []
-        if showBitValue:
+        if show_bit_value:
             for key in self.dGrph:
                 if len(self.dGrph[key]) == 2:
                     lst.append((key, self.dGrph[key][0], self.dGrph[key][1]))    
@@ -133,17 +150,17 @@ class VerilogGraph:
                     lst.append((key, self.dGrph[key][0]))
         return lst
 
-    def printPrimeIos(self, showBitValue = False):
+    def printPrimeIos(self, show_bit_value = False):
         """
             Prints the list of prime_io nodes in the graph.
 
             Parameters
             ----------
-            showBitValue : boolean (default: False)
+            show_bit_value : boolean (default: False)
                 If set True, also prints bit value of each node.
         """
-        prime_ios = self.listPrimeIos(showBitValue = showBitValue)
-        if showBitValue:
+        prime_ios = self.listPrimeIos(show_bit_value = show_bit_value)
+        if show_bit_value:
             print('Node ID --- IO Type --- BitValue')
             for node in prime_ios:
                 print(node[0], ' --- ', node[1], ' --- ', node[2])
@@ -152,21 +169,21 @@ class VerilogGraph:
             for node in prime_ios:
                 print(node[0], '----', node[1])
 
-    def listCfgBlcks(self, showBitValue = False):
+    def listCfgBlcks(self, show_bit_value = False):
         """
             Parameters
             ----------
-            showBitValue : boolean (default: False)
+            show_bit_value : boolean (default: False)
                 If set True, also returns bit value of the output for each of the node.
             Returns
             -------
             default: List of tuples in format 
                 (cfg_blck-node-IDs, cfg-string, tuple-of-ips, (output_id)).
-            if showBitValue is True: List of tuples in format
+            if show_bit_value is True: List of tuples in format
                 (cfg_blck-node-IDs, cfg-string, tuple-of-ips, (output_id, [1 | 0])).
         """
         lst = []
-        if showBitValue:
+        if show_bit_value:
             for key in self.dGrph:
                 if len(self.dGrph[key]) != 2:
                     lst.append((key, self.dGrph[key][2], self.dGrph[key][0], self.dGrph[key][1]))    
@@ -176,33 +193,193 @@ class VerilogGraph:
                     lst.append((key, self.dGrph[key][2], self.dGrph[key][0], (self.dGrph[key][1][0])))
         return lst
 
-    def printCfgBlcks(self, showBitValue = False):
+    def printCfgBlcks(self, show_bit_value = False):
         """
             Prints the list of cfg_blcks nodes in the graph.
+            Note: For faster simulation, the 'config' is stored in the reverse format
+            of what is given as input. But while using function: printCfgBlcks(), 
+            the actual 'config' is shown.
 
             Parameters
             ----------
-            showBitValue : boolean (default: False)
+            show_bit_value : boolean (default: False)
                 If set True, also prints bit value of the output for each of the node.
         """
-        cfg_blcks = self.listCfgBlcks(showBitValue = showBitValue)
-        if showBitValue:
+        cfg_blcks = self.listCfgBlcks(show_bit_value = show_bit_value)
+        if show_bit_value:
             print('Node ID - Config - Inputs - Output - OutputValue')
             for node in cfg_blcks:
-                print(node[0], ' - ', node[1], ' - ', node[2], ' - ', node[3][0], ' - ', node[3][1])
+                print(node[0], ' - ', node[1][::-1], ' - ', node[2], ' - ', node[3][0], ' - ', node[3][1])
         else:
             print('Node ID - Config - Inputs - Output')
             for node in cfg_blcks:
-                print(node[0], ' - ', node[1], ' - ', node[2], ' - ', node[3][0])
+                print(node[0], ' - ', node[1][::-1], ' - ', node[2], ' - ', node[3][0])
+
+    def listIntermediateOps(self, show_bit_value = False):
+        """
+            Parameters
+            ----------
+            show_bit_value : boolean (default: False)
+                If set True, also returns bit value of the intermediate output.
+
+            Returns
+            -------
+            default: List of tuples in format 
+                (inter_op, cfg_blck_of_origin).
+            if show_bit_value is True: List of tuples in format
+                (inter_op, cfg_blck_of_origin, [1|0]).
+        """
+        lst = []
+        cfg_blcks = self.listCfgBlcks(show_bit_value)
+        prime_ios = [io[0] for io in self.listPrimeIos() if io[1] == 'i']
+
+        for cfg in cfg_blcks:
+            if cfg[3][0] not in prime_ios:
+                if show_bit_value:
+                    lst.append((cfg[3][0], cfg[0], cfg[3][1]))
+                else:
+                    lst.append((cfg[3][0], cfg[0]))
+        return lst
+
+    def setIpValue(self, ip_id, value):
+        """
+            Sets the input value of the 'ip_id' as given 'value'.
+            Note: if value >= 1, then it is considered as 1;
+                  else it is considered as 0.
+
+            Parameters
+            ----------
+            ip_id : str
+                Input node identifier
+            value : int [1|0]
+                Value of the node
+        """ 
+        v = value
+        # Eliminating basic outliers
+        if ip_id not in self.dGrph:
+            print(ip_id, ' does not exist in graph. Value not set.')
+            return
+        if ip_id in self.dGrph:
+            if self.dGrph[ip_id][0] != 'i':
+                print('Cannot set value of any other node. Value not set.')
+                return
+        
+        if value >= 1:
+            v = 1
+        else:
+            v = 0
+        
+        self.dGrph[ip_id][1] = v
+    
+    def __processCfgSetup(self):
+        """
+            Sets various global lists used for processing the cfg_blcks.
+        """
+        self.__prime_ip = [(io[0], '$', io[2]) for io in self.listPrimeIos(True) if io[1] == 'i']
+
+    def __processCfgBlck(self, cfg_id):
+        """
+            Processes the configuration block and sets the value of output node.
+
+            Parameters
+            ----------
+            cfg_id : str
+                Identifier of the configuration block
+        """
+        # Eliminating basic outliers
+        if cfg_id not in self.dGrph:
+            print(cfg_id, ' does not exist in the graph. Cannot process.')
+            return
+        
+        # Find the input and retrieve it's value
+        # Tuple format: (io_id, io_source, io_value) : '$' indicates prime_io, else it 
+        # is replaced by the config blck of origin.
+
+        ip_str = ''     # string storing all inputs
+        all_ios = self.__prime_ip + self.listIntermediateOps(True)
+        abort_processing = False
+        for ip in self.dGrph[cfg_id][0]:    
+            found = False
+            for i in range(0, len(all_ios)):
+                if all_ios[i][0] == ip:
+                    found = True
+                    if all_ios[i][2] is not None:
+                        ip_str += str(all_ios[i][2])
+                    else:
+                        if all_ios[i][1] == '$':
+                            print('Primary input: ', ip, ' is not entered. Aborting processing blcks...')
+                            abort_processing = True
+                        else:
+                            print('Input: ', ip, ' is not entered. Processing blck: ', all_ios[i][1])
+                            # process the blck to get input
+                            if(self.__processCfgBlck(all_ios[i][1])):
+                                ip_str += str(self.dGrph[all_ios[i][1]][1][1])
+                            else:
+                                print('Couldn\'t process cfg_blck: ', all_ios[i][1], '. Aborting processing blcks...')
+                                abort_processing = True
+                    break
+            if not found:
+                print('Could not find input: ', ip, ' for cfg_blck: ', cfg_id, '. Aborting processing blcks...')
+                abort_processing = True
+            if abort_processing:
+                return False
+
+        # sanity check
+        # print('For: ', cfg_id, ' ip_str: ', ip_str)
+        if len(ip_str) != len(self.dGrph[cfg_id][0]):
+            print('It\'s a bug! ip_str: ', ip_str)
+            return False
+            
+        # Processing of blocks
+        self.dGrph[cfg_id][1][1] = self.dGrph[cfg_id][2][int(ip_str, 2)]
+        self.dGrph[self.dGrph[cfg_id][1][0]][1] = self.dGrph[cfg_id][1][1]
+        return True
+
+    def simulate(self):
+        """
+            Simulates the hardware circuit described by the VerilogGraph.
+        """
+        self.__processCfgSetup()
+
+        cfg_blck_ids = [blck[0] for blck in self.listCfgBlcks()]
+
+        for cfg_id in cfg_blck_ids:
+            if self.dGrph[cfg_id][1][1] == None:
+                if(self.__processCfgBlck(cfg_id)):
+                    print('Processed cgf_blck: ', cfg_id)
+                else:
+                    print('Some error in processing cfg_blck: ', cfg_id)
 
 # for unit testing this module
 if __name__ == '__main__':
     vg = VerilogGraph()
-    vg.addPrimeIo('ip1', 'o')
-    vg.addPrimeIo('ip2', 'i')
-    
-    vg.addCfgBlck('cfg1', ('ip1', 'ip2'), 'out1', 'b')
+    # Creating graph
+    # inputs
+    vg.addPrimeIo('i_1', 'i')
+    vg.addPrimeIo('i_2', 'i')
+    vg.addPrimeIo('i_3', 'i')
+    vg.addPrimeIo('i_4', 'i')
+    vg.addPrimeIo('i_5', 'i')
 
+    # outputs
+    vg.addPrimeIo('o_1', 'o')
+    vg.addPrimeIo('o_2', 'o')
+    
+    # connections to cfg blcks
+    vg.addCfgBlck('cfg1', ('i_1', 'i_2', 'i_3'), 'o_1', 'c2')
+    vg.addCfgBlck('cfg2', ('i_4', 'o_1', 'i_5'), 'o_2', '57')
+
+    # setting input values
+    vg.setIpValue('i_1', 0)
+    vg.setIpValue('i_2', 1)
+    vg.setIpValue('i_3', 1)
+    vg.setIpValue('i_4', 0)
+    vg.setIpValue('i_5', 0)
+    
+    # simulation
+    vg.simulate()
+
+    # printing
     vg.printPrimeIos(True)
     print(10*'-')
     vg.printCfgBlcks(True)
