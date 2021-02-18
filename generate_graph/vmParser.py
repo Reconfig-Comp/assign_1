@@ -119,9 +119,9 @@ class Parser:
                     self.lineNo += 1
                     
                 self.lineNo += 1
-                self.lineData = re.split('[=;\n]', self.fData[self.lineNo])
+                self.lineData = re.split('[=h;\n]', self.fData[self.lineNo])
                 self.__mapIO(self.iobuf, self.CFGio)
-                self.graph.addCfgBlck(self.module, [self.CFGio[i] for i in range(len(self.CFGio)-1)], self.CFGio[len(self.CFGio)-1], self.lineData[1][4:])
+                self.graph.addCfgBlck(self.module, [self.CFGio[i] for i in range(len(self.CFGio)-1)], self.CFGio[len(self.CFGio)-1], self.lineData[2])
                 self.CFGio = []
                 
             self.lineNo += 1 # Incrementing the lineNo to read next line
