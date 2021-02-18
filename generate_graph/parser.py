@@ -1,9 +1,7 @@
 """
-Parser module: Can be used to parse any .vm file and store the information in a dictionary
-which can be utilised for generating a graph.
-
-Last updated: 14th February 2021
+Parser module can be used to parse any .vm file and store the information in the graph data structure
 """
+
 # os module to obtain current working directory
 import os
 
@@ -13,83 +11,131 @@ import re
 # Importing graph_util package
 import graph_util as gu
 
-
-# Taking file path as input from the user
-#filePath = input("Enter the path of file you wish to parse: ")
-cwd = os.getcwd()
-filePath = cwd + '/../test_cases/vm_files\c17.vm'
-
-
-# Reading the file via the file path specified
-with open(filePath, "r") as vmFile:
-    fData = vmFile.readlines()
-
-
-lines = len(fData)                      # Number of lines in the file
-lineNo = 0                              # Keeps a track of lineNo being read
-
-iobuf = {}    # Input buffer mapping (Primary Input : wire)
-CFGio = []
-graph = gu.VerilogGraph() # Graph
-
-def mapIO(iobuf, cfgIO):
-    for key, value in iobuf.items():
-        for j in range(len(cfgIO)):
-            if key == cfgIO[j]:
-                cfgIO[j] = value
                 
-            
+class Parser:
+    '''
+    This class has all the functions required to parse the given .vm file
 
-while 1:
+    Public function(s):
+        1. Parse(): Parses the file line by line
 
-    # once end of the file is reached, break
-    if lineNo >= lines:
-        break
+    Private function(s):
+        1. __init__(): Initializes class with required variables
+        2. __mapIO(): Maps the wire to their corresponding primary input/output (Buffer)
+    '''
+    
+    def __init__(self, path):
+        '''
+        Constructor
+        Inputs:
+            1. path: Absolute path of file 
 
-    # Splitting the current line into separate characters
-    lineData = fData[lineNo].split()
+        Job:
+            1. Reads the file from the file path specified.
+            2. Creates a few variables
+            2. Creates VerilogGraph object for creating the graph data structure
+        '''
+        
+        # The entire file path
+        self.filePath = path
 
-    # If the length of current line string is 0 or the first word in the line is '//'
-    # or 'endmodule' or '`timescale' or 'wire' then go to next line
-    if len(lineData) == 0 or lineData[0] == '//' or lineData[0] == 'endmodule' or lineData[0] == '`timescale' or lineData[0] == 'wire':
-        lineNo += 1
-        continue
+        # Reading the file
+        with open(self.filePath, "r") as self.vmFile:
+            self.fData = self.vmFile.readlines()
 
-    # if the first word of the line is input, then store the name of primary input variable in input list
-    elif lineData[0] == 'input':
-        graph.addPrimeIo(lineData[1], 'i')
+        self.lines = len(self.fData)  # Number of lines in the file
+        self.lineNo = 0          # Keeps a track of lineNo being read
 
-    # if the first word of the line is output, then store the name of primary output variable in output list   
-    elif lineData[0] == 'output':
-        graph.addPrimeIo(lineData[1], 'o')
+        self.iobuf = {}          # Input buffer mapping (Primary Input : wire)
+        self.CFGio = []          # Stores the configuration module details temporarily
+        self.graph = gu.VerilogGraph() # VerilogGraph object
 
-    # if the first word of the line is INBUF, then store the name of wire and primary input as a pair in inbuf list
-    elif lineData[0] == 'INBUF':
-        # Reading the input and output of buffer from next 2 lines
-        lineNo += 2
-        lineData = re.split('[()]', fData[lineNo-1] + fData[lineNo])
-        iobuf.update({lineData[1]: lineData[3]})
 
-    # if the first word of the line is OUTBUF, then store the name of wire and primary output as a pair in outbuf list
-    elif lineData[0] == 'OUTBUF':
-        # Reading the input and output of buffer from next 2 lines
-        lineNo += 2
-        lineData = re.split('[()]', fData[lineNo-1] + fData[lineNo])
-        iobuf.update({lineData[3]: lineData[1]})
+    def __mapIO(self, iobuf, cfgIO):
+        '''
+        Maps the wire to their corresponding primary input/output
+        Inputs:
+            1. iobuf: This is a dictionary which has key : value as wire : primary input/output
+            2. cfgIO: This is the configuration module whose input/output needs to be mapped to primary input/output
+        '''
+        for key, value in self.iobuf.items():
+            for j in range(len(cfgIO)):
+                if key == cfgIO[j]:
+                    cfgIO[j] = value
 
-    # if the first word of the line starts with 'CFG', then this is the module used in the program
-    elif re.match('^C+F+G', lineData[0]):
-        module = lineData[1]     # Storing the module name
-        lineNo += 1        
-        while fData[lineNo] != ');\n':    # Until ');' keep reading the next line for inputs & outputs
-            lineData = re.split('[()]', fData[lineNo]) 
-            CFGio.append(lineData[1])
-            lineNo += 1
-        lineNo += 1
-        lineData = re.split('[=;\n]', fData[lineNo])
-        mapIO(iobuf, CFGio)
-        graph.addCfgBlck(module, [CFGio[i] for i in range(len(CFGio)-1)], CFGio[len(CFGio)-1], lineData[1][4:])
-        CFGio = []
-    lineNo += 1
 
+    def Parse(self):
+        '''
+        Parses the file line by line
+        '''
+        while 1:
+
+            # if the end of the file is reached, break
+            if self.lineNo >= self.lines:
+                break
+
+            # Splitting the current line into separate characters
+            self.lineData = self.fData[self.lineNo].split()
+
+            '''
+            If the length of current line string is 0 or the first word in the line is '//'
+            or 'endmodule' or '`timescale' or 'wire' then go to next line
+            '''
+            if (len(self.lineData) == 0 or self.lineData[0] == '//' or
+                self.lineData[0] == 'endmodule' or self.lineData[0] == '`timescale'
+                or self.lineData[0] == 'wire'):
+                self.lineNo += 1
+                continue
+
+            #if the first word of the line is input, then store the name of primary input variable in input list
+            elif self.lineData[0] == 'input':
+                self.graph.addPrimeIo(self.lineData[1], 'i')
+
+            # if the first word of the line is output, then store the name of primary output variable in output list   
+            elif self.lineData[0] == 'output':
+                self.graph.addPrimeIo(self.lineData[1], 'o')
+
+            # if the first word of the line is INBUF, then store the name of wire and primary input as a pair in inbuf list
+            elif self.lineData[0] == 'INBUF':
+                # Reading the input and output of buffer from next 2 lines
+                self.lineNo += 2
+                self.lineData = re.split('[()]', self.fData[self.lineNo-1] + self.fData[self.lineNo])
+                self.iobuf.update({self.lineData[1]: self.lineData[3]})
+
+            # if the first word of the line is OUTBUF, then store the name of wire and primary output as a pair in outbuf list
+            elif self.lineData[0] == 'OUTBUF':
+                # Reading the input and output of buffer from next 2 lines
+                self.lineNo += 2
+                self.lineData = re.split('[()]', self.fData[self.lineNo-1] + self.fData[self.lineNo])
+                self.iobuf.update({self.lineData[3]: self.lineData[1]})
+
+            # if the first word of the line starts with 'CFG', then this is the module used in the program
+            elif re.match('^C+F+G', self.lineData[0]):
+                self.module = self.lineData[1]     # Storing the module name
+                self.lineNo += 1        
+                while self.fData[self.lineNo] != ');\n':    # Until ');' keep reading the next line for inputs & outputs
+                    self.lineData = re.split('[()]', self.fData[self.lineNo]) 
+                    self.CFGio.append(self.lineData[1])
+                    self.lineNo += 1
+                    
+                self.lineNo += 1
+                self.lineData = re.split('[=;\n]', self.fData[self.lineNo])
+                self.__mapIO(self.iobuf, self.CFGio)
+                self.graph.addCfgBlck(self.module, [self.CFGio[i] for i in range(len(self.CFGio)-1)], self.CFGio[len(self.CFGio)-1], self.lineData[1][4:])
+                self.CFGio = []
+                
+            self.lineNo += 1 # Incrementing the lineNo to read next line
+
+
+'''
+Testing the class
+'''
+
+if __name__ == '__main__':
+    
+    path = os.getcwd() + '/../test_cases/vm_files/c17.vm'
+    c17 = Parser(path)
+    c17.Parse()
+
+    
 
