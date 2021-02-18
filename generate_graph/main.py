@@ -14,10 +14,12 @@ if __name__ == '__main__':
 
     # Absolute file path
     filepath = os.getcwd() + relativePath
+    print(filepath)
 
     # Creating a Parser object named c17
-    c17 = vmParser.Parser(filepath)
+    c1355 = vmParser.Parser(filepath)
 
     # Parsing c17.vm
-    c17.Parse()
+    c1355.Parse()
+    [c1355.graph.printCfgBlcks()]
 
