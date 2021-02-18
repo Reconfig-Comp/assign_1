@@ -31,7 +31,7 @@ class VerilogGraph:
                     * printCfgBlcks()
                 Graph simulation methods
                     * setIpValue()
-                    * simulate()
+                    * simulate(inputs, bit_str)
 
             Private:
                     * __init__()
@@ -273,9 +273,14 @@ class VerilogGraph:
     
     def __processCfgSetup(self):
         """
-            Sets various global lists used for processing the cfg_blcks.
+            Performs pre-requisites before processing the cfg_blcks.
         """
         self.__prime_ip = [(io[0], '$', io[2]) for io in self.listPrimeIos(True) if io[1] == 'i']
+
+        cfg_blck_ids = [blck[0] for blck in self.listCfgBlcks()]
+        for cfg_id in cfg_blck_ids:
+            self.dGrph[cfg_id][1][1] = None
+            self.dGrph[self.dGrph[cfg_id][1][0]][1] = None
 
     def __processCfgBlck(self, cfg_id):
         """
@@ -335,10 +340,31 @@ class VerilogGraph:
         self.dGrph[self.dGrph[cfg_id][1][0]][1] = self.dGrph[cfg_id][1][1]
         return True
 
-    def simulate(self):
+    def simulate(self, inputs = None, bit_str = None):
         """
             Simulates the hardware circuit described by the VerilogGraph.
+
+            Parameters
+            ----------
+            inputs : List (default: None)
+                List of primary input IDs.
+            bit_str : str (default: None)
+                String of 0s and 1s representing the primary 'inputs' set.
+            Eg: To simulate circuit with primary inputs ip1, ip2, ip3 as 0, 1, 0 respectively, execute
+            simulate(['ip1', 'ip2', 'ip3'], '010')
         """
+        # Eliminating basic outlier conditions
+        if (inputs is None and bit_str is not None) or (inputs is not None and bit_str is None):
+            print('Please enter both inputs and bit_str. Exiting simulation...')
+            return
+        if inputs is not None and bit_str is not None:
+            if len(inputs) != len(bit_str):
+                print('inputs and bit_str not of same length. Exiting simulation...')
+                return
+            # setting primary inputs
+            for i in range(0, len(inputs)):
+                self.setIpValue(inputs[i], int(bit_str[i]))
+            
         self.__processCfgSetup()
 
         cfg_blck_ids = [blck[0] for blck in self.listCfgBlcks()]
@@ -376,11 +402,31 @@ if __name__ == '__main__':
     vg.setIpValue('i_4', 0)
     vg.setIpValue('i_5', 0)
     
-    # simulation
+    # simulation - test 1
     vg.simulate()
 
     # printing
+    print('Simulation test 1')
     vg.printPrimeIos(True)
     print(10*'-')
     vg.printCfgBlcks(True)
+
+    # simulation - test 2
+    vg.simulate(['i_1', 'i_2', 'i_3', 'i_4', 'i_5'], '01010')
+
+    # printing
+    print('Simulation test 2')
+    vg.printPrimeIos(True)
+    print(10*'-')
+    vg.printCfgBlcks(True)
+
+    # simulation - test 3
+    vg.simulate(['i_1', 'i_2', 'i_3', 'i_4', 'i_5'], '11010')
+
+    # printing
+    print('Simulation test 3')
+    vg.printPrimeIos(True)
+    print(10*'-')
+    vg.printCfgBlcks(True)
+
     pass
