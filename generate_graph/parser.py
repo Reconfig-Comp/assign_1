@@ -17,7 +17,7 @@ import graph_util as gu
 # Taking file path as input from the user
 #filePath = input("Enter the path of file you wish to parse: ")
 cwd = os.getcwd()
-filePath = cwd + '/test_cases/vm_files/c17.vm'
+filePath = cwd + '/../test_cases/vm_files\c17.vm'
 
 
 # Reading the file via the file path specified
@@ -27,11 +27,11 @@ with open(filePath, "r") as vmFile:
 
 lines = len(fData)                      # Number of lines in the file
 lineNo = 0                              # Keeps a track of lineNo being read
-ioData = {'input': [], 'output': []}    # Primary input & output
 
 inbuf = {}    # Input buffer mapping (Primary Input : wire)
 outbuf = {}   # Output buffer mapping (Primary Output : wire)
-graph = gu.DirectedGraph() # Graph
+CFGio = []
+graph = gu.VerilogGraph() # Graph
 
 while 1:
 
@@ -50,11 +50,11 @@ while 1:
 
     # if the first word of the line is input, then store the name of primary input variable in input list
     elif lineData[0] == 'input':
-        ioData["input"].append(lineData[1])
+        graph.addPrimeIo(lineData[1], 'i')
 
     # if the first word of the line is output, then store the name of primary output variable in output list   
     elif lineData[0] == 'output':
-        ioData["output"].append(lineData[1])
+        graph.addPrimeIo(lineData[1], 'o')
 
     # if the first word of the line is INBUF, then store the name of wire and primary input as a pair in inbuf list
     elif lineData[0] == 'INBUF':
@@ -73,11 +73,13 @@ while 1:
     # if the first word of the line starts with 'CFG', then this is the module used in the program
     elif re.match('^C+F+G', lineData[0]):
         module = lineData[1]     # Storing the module name
-        graph.addVertex(module)  # Adding module to graph as a vertex
         lineNo += 1        
         while fData[lineNo] != ');\n':    # Until ');' keep reading the next line for inputs & outputs
             lineData = re.split('[()]', fData[lineNo]) 
-            graph.addEdge([module, lineData[1]])  
+            CFGio.append(lineData[1])
             lineNo += 1
-            
+        lineNo += 1
+        lineData = re.split('[=;\n]', fData[lineNo])
+        graph.addCfgBlck(module, [CFGio[i] for i in range(0, len(CFGio)-1)], CFGio[len(CFGio)-1], lineData[1][4:])
+        CFGio = []
     lineNo += 1
