@@ -109,8 +109,8 @@ class VerilogGraph:
             ----------
             cfg_id : str
                 Identifier for the cfgBlck_io node.
-            inputs : list/set/tuple
-                n-sized list/set/tuple of string identifiers representing input
+            inputs : list/tuple
+                n-sized list/tuple of string identifiers representing input
                 to the cfg_blck.
             output : str
                 String identifier for the output.
@@ -145,12 +145,12 @@ class VerilogGraph:
             ----------
             ari_id : str
                 Identifier for the ari_blck node.
-            inputs : list/set/tuple
-                5-sized list/set/tuple of string identifiers representing inputs
-                to the ari_blck in the sequence: {'A', 'B', 'C', 'D', 'FCI'}.
+            inputs : list/tuple
+                5-sized list/tuple of string identifiers representing inputs
+                to the ari_blck in the sequence: ['A', 'B', 'C', 'D', 'FCI'].
             outputs : set
                 3-sized set of string identifiers representing outputs
-                from the ari_blck in the sequence: {'Y', 'S', 'FCO'}.
+                from the ari_blck in the sequence: ['Y', 'S', 'FCO'].
             config : str
                 String of length 5 representing configuration in hexadecimal
                 of the ari_blck.
@@ -158,7 +158,7 @@ class VerilogGraph:
 
             Example usage
             -------------
-            addAriBlck('ariBlck1', {'ipA', 'ipB', 'ipC', 'ipD', 'ipFci'}, {'opY', 'opS', 'opFco'}, '01d1c')
+            addAriBlck('ariBlck1', ['ipA', 'ipB', 'ipC', 'ipD', 'ipFci'], ['opY', 'opS', 'opFco'], '01d1c')
         """
         # Eliminating basic outlier conditions
         if(len(inputs) != 5):
@@ -285,12 +285,12 @@ class VerilogGraph:
                 if len(self.dGrph[key]) != 2:
                     # eliminating cfg_blck node 
                     if len(self.dGrph[key][1]) == 3:
-                        lst.append((key, self.dGrph[key][2], self.dGrph[key][0], [op[0] for op in self.dGrph[key][1]]))    
+                        lst.append((key, self.dGrph[key][2], self.dGrph[key][0], self.dGrph[key][1]))    
         else:
             for key in self.dGrph:
                 if len(self.dGrph[key]) != 2:
                     if len(self.dGrph[key][1]) == 3:
-                        lst.append((key, self.dGrph[key][2], self.dGrph[key][0], self.dGrph[key][1]))
+                        lst.append((key, self.dGrph[key][2], self.dGrph[key][0], [op for op in self.dGrph[key][1]]))
         return lst
 
     def printAriBlcks(self, show_bit_value = False):
@@ -492,8 +492,11 @@ if __name__ == '__main__':
     vg.addPrimeIo('o_2', 'o')
     
     # connections to cfg blcks
-    vg.addCfgBlck('cfg1', ('i_1', 'i_2', 'i_3'), 'o_1', 'c2')
-    vg.addCfgBlck('cfg2', ('i_4', 'o_1', 'i_5'), 'o_2', '57')
+    vg.addCfgBlck('cfg1', ('i_1', 'i_2', 'i_3'), 'cfg1_o', 'c2')
+    vg.addCfgBlck('cfg2', ('i_4', 'o_1', 'i_5'), 'cfg2_o', '57')
+
+    vg.addAriBlck('ari1', ['i_1', 'cfg1_o', 'i_4', 'cfg1_o', 'cfg2_o'], ['ari1_y', 'ari1_s', 'ari1_fco'], 'A5D21')
+    vg.addAriBlck('ari2', ['i_2', 'cfg2_o', 'i_5', 'i_3', 'i_4'], ['ari2_y', 'ari2_s', 'ari2_fco'], 'EC9B5')
 
     # setting input values
     vg.setIpValue('i_1', 0)
@@ -502,31 +505,33 @@ if __name__ == '__main__':
     vg.setIpValue('i_4', 0)
     vg.setIpValue('i_5', 0)
     
-    # simulation - test 1
-    vg.simulate()
+    # # simulation - test 1
+    # vg.simulate()
 
-    # printing
-    print('Simulation test 1')
+    # # printing
+    # print('Simulation test 1')
+    # vg.printPrimeIos(True)
+    # print(10*'-')
+    # vg.printCfgBlcks(True)
+
+    # # simulation - test 2
+    # vg.simulate(['i_1', 'i_2', 'i_3', 'i_4', 'i_5'], '01010')
+
+    # # printing
+    # print('Simulation test 2')
+    # vg.printPrimeIos(True)
+    # print(10*'-')
+    # vg.printCfgBlcks(True)
+
+    # # simulation - test 3
+    # vg.simulate(['i_1', 'i_2', 'i_3', 'i_4', 'i_5'], '11010')
+
+    # # printing
+    # print('Simulation test 3')
     vg.printPrimeIos(True)
     print(10*'-')
     vg.printCfgBlcks(True)
-
-    # simulation - test 2
-    vg.simulate(['i_1', 'i_2', 'i_3', 'i_4', 'i_5'], '01010')
-
-    # printing
-    print('Simulation test 2')
-    vg.printPrimeIos(True)
     print(10*'-')
-    vg.printCfgBlcks(True)
-
-    # simulation - test 3
-    vg.simulate(['i_1', 'i_2', 'i_3', 'i_4', 'i_5'], '11010')
-
-    # printing
-    print('Simulation test 3')
-    vg.printPrimeIos(True)
-    print(10*'-')
-    vg.printCfgBlcks(True)
+    vg.printAriBlcks(True)
 
     pass
