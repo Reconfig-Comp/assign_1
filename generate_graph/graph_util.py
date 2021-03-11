@@ -10,11 +10,13 @@ class VerilogGraph:
         Attributes
         ----------
         dGrph : dictionary
-            Dictionary storing the graph. Two types of nodes:
+            Dictionary storing the graph. Three types of nodes:
             - prime_io node : 
                 {'primeIo_id': 'io_type', 1|0}
             - cfg_blck node : 
-                {'cfgBlck_id': [('ip0', 'ip1', 'ip3'), ('op', 1|0), 'cfg_string']}
+                {'cfgBlck_id': [('ip0', 'ip1', 'ip3'), ['op', 1|0], 'cfg_string']}
+            - ari_blck node:
+                {'ariBlck_id': [('A', 'B', 'C', 'D', 'FCI'), [['Y', 1|0], ['S', 1|0], ['FCO', 1|0]], 'cfg_string']}
         __prime_ip : list
             list of primary inputs in the VerilogGraph. Private attribute used to
             better process the cfg_blcks
@@ -25,10 +27,13 @@ class VerilogGraph:
                 Graph creation methods
                     * addPrimeIo(io_type, io_id)
                     * addCfgBlck(inputs, output, config)
+                    * addAriBlck(inputs, outputs, config)
                     * listPrimeIos()
                     * listCfgBlcks()
+                    * listAriBlcks()
                     * printPrimeIos()
                     * printCfgBlcks()
+                    * printAriBlcks()
                 Graph simulation methods
                     * setIpValue()
                     * simulate(inputs, bit_str)
@@ -103,9 +108,9 @@ class VerilogGraph:
             Parameters
             ----------
             cfg_id : str
-                Identifier for the prime_io node.
-            inputs : tuple
-                n-sized tuple of string identifiers representing input
+                Identifier for the cfgBlck_io node.
+            inputs : list/set/tuple
+                n-sized list/set/tuple of string identifiers representing input
                 to the cfg_blck.
             output : str
                 String identifier for the output.
@@ -116,7 +121,7 @@ class VerilogGraph:
 
             Example usage
             -------------
-            addCfgBlck('blck1', {'ip1', 'ip2', 'ip3'}, 'out_1', '1c')
+            addCfgBlck('blck1', ['ip1', 'ip2', 'ip3'], 'out_1', '1c')
         """
         # Eliminating basic outlier conditions
         if (len(inputs) <= 2 and len(config) != 1) or (len(config) != 2**(len(inputs) - 2)):
@@ -126,7 +131,47 @@ class VerilogGraph:
             print('cfg_id already exists. No node added.')
             return
         
-        self.dGrph[cfg_id] = [inputs, [output, None], self.__convertToBinaryStr(config)[::-1]]
+        self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config)[::-1]]
+    
+    def addAriBlck(self, ari_id, inputs, outputs, config):
+        """
+            Adds a node of type ari_blck to the graph.
+            Note: For faster simulation, the 'config' is stored in the reverse format
+            of what is given as input. But while using function: printAriBlcks(), 
+            the actual 'config' is shown.
+
+
+            Parameters
+            ----------
+            ari_id : str
+                Identifier for the ari_blck node.
+            inputs : list/set/tuple
+                5-sized list/set/tuple of string identifiers representing inputs
+                to the ari_blck in the sequence: {'A', 'B', 'C', 'D', 'FCI'}.
+            outputs : set
+                3-sized set of string identifiers representing outputs
+                from the ari_blck in the sequence: {'Y', 'S', 'FCO'}.
+            config : str
+                String of length 5 representing configuration in hexadecimal
+                of the ari_blck.
+            
+
+            Example usage
+            -------------
+            addAriBlck('ariBlck1', {'ipA', 'ipB', 'ipC', 'ipD', 'ipFci'}, {'opY', 'opS', 'opFco'}, '01d1c')
+        """
+        # Eliminating basic outlier conditions
+        if(len(inputs) != 5):
+            print('Invalid number of inputs. No node added.')
+            return
+        if(len(outputs) != 3):
+            print('Invalid number of outputs. No node added.')
+            return
+        if(len(config) != 5):
+            print('Invalid length of configuration string. No node added.')
+            return
+
+        self.dGrph[ari_id] = [tuple(inputs), [[outputs[0], None], [outputs[1], None], [outputs[2], None]], self.__convertToBinaryStr(config)[::-1]]
 
     def listPrimeIos(self, show_bit_value = False):
         """
@@ -178,19 +223,23 @@ class VerilogGraph:
             Returns
             -------
             default: List of tuples in format 
-                (cfg_blck-node-IDs, cfg-string, tuple-of-ips, (output_id)).
+                (cfg_blck-node-IDs, cfg-string, tuple-of-ips, output_id).
             if show_bit_value is True: List of tuples in format
                 (cfg_blck-node-IDs, cfg-string, tuple-of-ips, (output_id, [1 | 0])).
         """
         lst = []
         if show_bit_value:
             for key in self.dGrph:
+                # eliminating prime_ios node
                 if len(self.dGrph[key]) != 2:
-                    lst.append((key, self.dGrph[key][2], self.dGrph[key][0], self.dGrph[key][1]))    
+                    # eliminating ari_blck node 
+                    if len(self.dGrph[key][1]) == 2:
+                        lst.append((key, self.dGrph[key][2], self.dGrph[key][0], self.dGrph[key][1])) 
         else:
             for key in self.dGrph:
                 if len(self.dGrph[key]) != 2:
-                    lst.append((key, self.dGrph[key][2], self.dGrph[key][0], (self.dGrph[key][1][0])))
+                    if len(self.dGrph[key][1]) == 2:
+                        lst.append((key, self.dGrph[key][2], self.dGrph[key][0], (self.dGrph[key][1][0])))
         return lst
 
     def printCfgBlcks(self, show_bit_value = False):
@@ -214,6 +263,57 @@ class VerilogGraph:
             print('Node ID - Config - Inputs - Output')
             for node in cfg_blcks:
                 print(node[0], ' - ', node[1][::-1], ' - ', node[2], ' - ', node[3][0])
+
+    def listAriBlcks(self, show_bit_value = False):
+        """
+            Parameters
+            ----------
+            show_bit_value : boolean (default: False)
+                If set True, also returns bit value of the output for each of the node.
+
+            Returns
+            -------
+            default: List of tuples in format 
+                (ari_blck-node-IDs, cfg-string, tuple-of-ips, list-of-ops).
+            if show_bit_value is True: List of tuples in format
+                (ari_blck-node-IDs, cfg-string, tuple-of-ips, [[op1, [1 | 0]], ...]).
+        """
+        lst = []
+        if show_bit_value:
+            for key in self.dGrph:
+                # eliminating prime_ios node
+                if len(self.dGrph[key]) != 2:
+                    # eliminating cfg_blck node 
+                    if len(self.dGrph[key][1]) == 3:
+                        lst.append((key, self.dGrph[key][2], self.dGrph[key][0], [op[0] for op in self.dGrph[key][1]]))    
+        else:
+            for key in self.dGrph:
+                if len(self.dGrph[key]) != 2:
+                    if len(self.dGrph[key][1]) == 3:
+                        lst.append((key, self.dGrph[key][2], self.dGrph[key][0], self.dGrph[key][1]))
+        return lst
+
+    def printAriBlcks(self, show_bit_value = False):
+        """
+            Prints the list of ari_blcks nodes in the graph.
+            Note: For faster simulation, the 'config' is stored in the reverse format
+            of what is given as input. But while using function: printAriBlcks(), 
+            the actual 'config' is shown.
+
+            Parameters
+            ----------
+            show_bit_value : boolean (default: False)
+                If set True, also prints bit value of the output for each of the node.
+        """
+        ari_blcks = self.listAriBlcks(show_bit_value = show_bit_value)
+        if show_bit_value:
+            print('Node ID - Config - Inputs - Outputs - OutputValues')
+            for node in ari_blcks:
+                print(node[0], ' - ', node[1][::-1], ' - ', node[2], ' - ', [op[0] for op in node[3]], ' - ', [op[1] for op in node[3]])
+        else:
+            print('Node ID - Config - Inputs - Outputs')
+            for node in ari_blcks:
+                print(node[0], ' - ', node[1][::-1], ' - ', node[2], ' - ', [op[0] for op in node[3]])
 
     def listIntermediateOps(self, show_bit_value = False):
         """
