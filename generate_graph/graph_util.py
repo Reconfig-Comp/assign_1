@@ -124,6 +124,9 @@ class VerilogGraph:
             addCfgBlck('blck1', ['ip1', 'ip2', 'ip3'], 'out_1', '1c')
         """
         # Eliminating basic outlier conditions
+        if (len(inputs) == 1 and len(config) == 1):
+            self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config)[::-1]]
+            return
         if (len(inputs) <= 2 and len(config) != 1) or (len(config) != 2**(len(inputs) - 2)):
             print('Configuration string and number of inputs do not match. No node added.')
             return
