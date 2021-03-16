@@ -10,14 +10,19 @@ class VerilogGraph:
         Attributes
         ----------
         dGrph : dictionary
-            Dictionary storing the graph. Two types of nodes:
+            Dictionary storing the graph. Three types of nodes:
             - prime_io node : 
                 {'primeIo_id': 'io_type', 1|0}
             - cfg_blck node : 
-                {'cfgBlck_id': [('ip0', 'ip1', 'ip3'), ('op', 1|0), 'cfg_string']}
+                {'cfgBlck_id': [('ip0', 'ip1', 'ip3'), ['op', 1|0], 'cfg_string']}
+            - ari_blck node:
+                {'ariBlck_id': [('A', 'B', 'C', 'D', 'FCI'), [['Y', 1|0], ['S', 1|0], ['FCO', 1|0]], 'cfg_string']}
         __prime_ip : list
             list of primary inputs in the VerilogGraph. Private attribute used to
-            better process the cfg_blcks
+            better process the blcks
+        __prime_op : list
+            list of primary outputs in the VerilogGraph. Private attribute used to
+            better process blcks
 
         Methods
         -------
@@ -25,10 +30,13 @@ class VerilogGraph:
                 Graph creation methods
                     * addPrimeIo(io_type, io_id)
                     * addCfgBlck(inputs, output, config)
+                    * addAriBlck(inputs, outputs, config)
                     * listPrimeIos()
                     * listCfgBlcks()
+                    * listAriBlcks()
                     * printPrimeIos()
                     * printCfgBlcks()
+                    * printAriBlcks()
                 Graph simulation methods
                     * setIpValue()
                     * simulate(inputs, bit_str)
@@ -38,8 +46,12 @@ class VerilogGraph:
                 Graph creation methods
                     * __convertToBinaryStr(hex_str)
                 Graph simulation methods
-                    * __processSetup()
-                    * __processCfgBlck()
+                    * __charToBool(char)
+                    * __boolToChar(boolean)
+                    * __simSetup()
+                    * __processCgfBlck()
+                    * __processAriBlck()
+                    * __processBlcks()
 
     """
 
@@ -51,6 +63,7 @@ class VerilogGraph:
         """
         self.dGrph = {}
         self.__prime_ip = []
+        self.__prime_op = []
     
     def __convertToBinaryStr(self, hex_str):
         """
@@ -92,6 +105,9 @@ class VerilogGraph:
         
         self.dGrph[io_id] = [io_type, None]
 
+        if io_type == 'o':
+            self.__prime_op.append(io_id) 
+
     def addCfgBlck(self, cfg_id, inputs, output, config):
         """
             Adds a node of type cfg_blck to the graph.
@@ -103,9 +119,9 @@ class VerilogGraph:
             Parameters
             ----------
             cfg_id : str
-                Identifier for the prime_io node.
-            inputs : tuple
-                n-sized tuple of string identifiers representing input
+                Identifier for the cfgBlck_io node.
+            inputs : list/tuple
+                n-sized list/tuple of string identifiers representing input
                 to the cfg_blck.
             output : str
                 String identifier for the output.
@@ -116,9 +132,12 @@ class VerilogGraph:
 
             Example usage
             -------------
-            addCfgBlck('blck1', {'ip1', 'ip2', 'ip3'}, 'out_1', '1c')
+            addCfgBlck('blck1', ['ip1', 'ip2', 'ip3'], 'out_1', '1c')
         """
         # Eliminating basic outlier conditions
+        if (len(inputs) == 1 and len(config) == 1):
+            self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config)[::-1]]
+            return
         if (len(inputs) <= 2 and len(config) != 1) or (len(config) != 2**(len(inputs) - 2)):
             print('Configuration string and number of inputs do not match. No node added.')
             return
@@ -126,7 +145,47 @@ class VerilogGraph:
             print('cfg_id already exists. No node added.')
             return
         
-        self.dGrph[cfg_id] = [inputs, [output, None], self.__convertToBinaryStr(config)[::-1]]
+        self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config)[::-1]]
+    
+    def addAriBlck(self, ari_id, inputs, outputs, config):
+        """
+            Adds a node of type ari_blck to the graph.
+            Note: For faster simulation, the 'config' is stored in the reverse format
+            of what is given as input. But while using function: printAriBlcks(), 
+            the actual 'config' is shown.
+
+
+            Parameters
+            ----------
+            ari_id : str
+                Identifier for the ari_blck node.
+            inputs : list/tuple
+                5-sized list/tuple of string identifiers representing inputs
+                to the ari_blck in the sequence: ['A', 'B', 'C', 'D', 'FCI'].
+            outputs : set
+                3-sized set of string identifiers representing outputs
+                from the ari_blck in the sequence: ['Y', 'S', 'FCO'].
+            config : str
+                String of length 5 representing configuration in hexadecimal
+                of the ari_blck.
+            
+
+            Example usage
+            -------------
+            addAriBlck('ariBlck1', ['ipA', 'ipB', 'ipC', 'ipD', 'ipFci'], ['opY', 'opS', 'opFco'], '01d1c')
+        """
+        # Eliminating basic outlier conditions
+        if(len(inputs) != 5):
+            print('Invalid number of inputs. No node added.')
+            return
+        if(len(outputs) != 3):
+            print('Invalid number of outputs. No node added.')
+            return
+        if(len(config) != 5):
+            print('Invalid length of configuration string. No node added.')
+            return
+
+        self.dGrph[ari_id] = [tuple(inputs), [[outputs[0], None], [outputs[1], None], [outputs[2], None]], self.__convertToBinaryStr(config)[::-1]]
 
     def listPrimeIos(self, show_bit_value = False):
         """
@@ -178,19 +237,23 @@ class VerilogGraph:
             Returns
             -------
             default: List of tuples in format 
-                (cfg_blck-node-IDs, cfg-string, tuple-of-ips, (output_id)).
+                (cfg_blck-node-IDs, cfg-string, tuple-of-ips, output_id).
             if show_bit_value is True: List of tuples in format
                 (cfg_blck-node-IDs, cfg-string, tuple-of-ips, (output_id, [1 | 0])).
         """
         lst = []
         if show_bit_value:
             for key in self.dGrph:
+                # eliminating prime_ios node
                 if len(self.dGrph[key]) != 2:
-                    lst.append((key, self.dGrph[key][2], self.dGrph[key][0], self.dGrph[key][1]))    
+                    # eliminating ari_blck node 
+                    if len(self.dGrph[key][1]) == 2:
+                        lst.append((key, self.dGrph[key][2], self.dGrph[key][0], self.dGrph[key][1])) 
         else:
             for key in self.dGrph:
                 if len(self.dGrph[key]) != 2:
-                    lst.append((key, self.dGrph[key][2], self.dGrph[key][0], (self.dGrph[key][1][0])))
+                    if len(self.dGrph[key][1]) == 2:
+                        lst.append((key, self.dGrph[key][2], self.dGrph[key][0], (self.dGrph[key][1][0])))
         return lst
 
     def printCfgBlcks(self, show_bit_value = False):
@@ -215,6 +278,57 @@ class VerilogGraph:
             for node in cfg_blcks:
                 print(node[0], ' - ', node[1][::-1], ' - ', node[2], ' - ', node[3][0])
 
+    def listAriBlcks(self, show_bit_value = False):
+        """
+            Parameters
+            ----------
+            show_bit_value : boolean (default: False)
+                If set True, also returns bit value of the output for each of the node.
+
+            Returns
+            -------
+            default: List of tuples in format 
+                (ari_blck-node-IDs, cfg-string, tuple-of-ips, list-of-ops).
+            if show_bit_value is True: List of tuples in format
+                (ari_blck-node-IDs, cfg-string, tuple-of-ips, [[op1, [1 | 0]], ...]).
+        """
+        lst = []
+        if show_bit_value:
+            for key in self.dGrph:
+                # eliminating prime_ios node
+                if len(self.dGrph[key]) != 2:
+                    # eliminating cfg_blck node 
+                    if len(self.dGrph[key][1]) == 3:
+                        lst.append((key, self.dGrph[key][2], self.dGrph[key][0], self.dGrph[key][1]))    
+        else:
+            for key in self.dGrph:
+                if len(self.dGrph[key]) != 2:
+                    if len(self.dGrph[key][1]) == 3:
+                        lst.append((key, self.dGrph[key][2], self.dGrph[key][0], [op for op in self.dGrph[key][1]]))
+        return lst
+
+    def printAriBlcks(self, show_bit_value = False):
+        """
+            Prints the list of ari_blcks nodes in the graph.
+            Note: For faster simulation, the 'config' is stored in the reverse format
+            of what is given as input. But while using function: printAriBlcks(), 
+            the actual 'config' is shown.
+
+            Parameters
+            ----------
+            show_bit_value : boolean (default: False)
+                If set True, also prints bit value of the output for each of the node.
+        """
+        ari_blcks = self.listAriBlcks(show_bit_value = show_bit_value)
+        if show_bit_value:
+            print('Node ID - Config - Inputs - Outputs - OutputValues')
+            for node in ari_blcks:
+                print(node[0], ' - ', node[1][::-1], ' - ', node[2], ' - ', [op[0] for op in node[3]], ' - ', [op[1] for op in node[3]])
+        else:
+            print('Node ID - Config - Inputs - Outputs')
+            for node in ari_blcks:
+                print(node[0], ' - ', node[1][::-1], ' - ', node[2], ' - ', [op[0] for op in node[3]])
+
     def listIntermediateOps(self, show_bit_value = False):
         """
             Parameters
@@ -225,20 +339,32 @@ class VerilogGraph:
             Returns
             -------
             default: List of tuples in format 
-                (inter_op, cfg_blck_of_origin).
+                (inter_op, blck_of_origin).
             if show_bit_value is True: List of tuples in format
-                (inter_op, cfg_blck_of_origin, [1|0]).
+                (inter_op, blck_of_origin, [1|0]).
         """
         lst = []
-        cfg_blcks = self.listCfgBlcks(show_bit_value)
         prime_ios = [io[0] for io in self.listPrimeIos() if io[1] == 'i']
 
+        # obtaining intermediate outputs of each configuration block
+        cfg_blcks = self.listCfgBlcks(show_bit_value)
         for cfg in cfg_blcks:
             if cfg[3][0] not in prime_ios:
                 if show_bit_value:
                     lst.append((cfg[3][0], cfg[0], cfg[3][1]))
                 else:
                     lst.append((cfg[3][0], cfg[0]))
+        
+        # obtaining intermediate outputs of each ari block
+        ari_blcks = self.listAriBlcks(show_bit_value)
+        for ari in ari_blcks:
+            for ari_op in ari[3]:
+                if ari_op[0] not in prime_ios:
+                    if show_bit_value:
+                        lst.append((ari_op[0], ari[0], ari_op[1]))
+                    else:
+                        lst.append((ari_op[0], ari[0]))
+        
         return lst
 
     def setIpValue(self, ip_id, value):
@@ -271,42 +397,159 @@ class VerilogGraph:
         
         self.dGrph[ip_id][1] = v
     
-    def __processCfgSetup(self):
+    def __charToBool(self, char):
         """
-            Performs pre-requisites before processing the cfg_blcks.
-        """
-        self.__prime_ip = [(io[0], '$', io[2]) for io in self.listPrimeIos(True) if io[1] == 'i']
-
-        cfg_blck_ids = [blck[0] for blck in self.listCfgBlcks()]
-        for cfg_id in cfg_blck_ids:
-            self.dGrph[cfg_id][1][1] = None
-            self.dGrph[self.dGrph[cfg_id][1][0]][1] = None
-
-    def __processCfgBlck(self, cfg_id):
-        """
-            Processes the configuration block and sets the value of output node.
+            Converts '1' to True and '0' to False
 
             Parameters
             ----------
-            cfg_id : str
-                Identifier of the configuration block
+            char : str
+                Either '1' or '0'
+            
+            Returns
+            -------
+            True, if char == '1' ; False, if char == '0'
+        """
+
+        if char == '1':
+            return True
+        elif char == '0':
+            return False
+    
+    def __boolToChar(self, boolean):
+        """
+            Converts True to '1' and False to '0'
+
+            Parameters
+            ----------
+            boolean : bool
+            
+            Returns
+            -------
+            '1', if boolean == True ; '0', if boolean == False
+        """
+
+        if boolean:
+            return '1'
+        else:
+            return '0'
+
+    def __simSetup(self):
+        """
+            Performs pre-requisites before simulation.
+        """
+        self.__prime_ip = [(io[0], '$', io[2]) for io in self.listPrimeIos(True) if io[1] == 'i']
+
+        # setting primary output values to None
+        for prime_op in self.__prime_op:
+            self.dGrph[prime_op][1] = None
+
+        # setting cfg_blck output values to None
+        cfg_blck_ids = [blck[0] for blck in self.listCfgBlcks()]
+        for cfg_id in cfg_blck_ids:
+            self.dGrph[cfg_id][1][1] = None
+        
+        # setting ari_blck output values to None
+        ari_blck_ids = [blck[0] for blck in self.listAriBlcks()]
+        for ari_id in ari_blck_ids:
+            self.dGrph[ari_id][1][0][1] =  None
+            self.dGrph[ari_id][1][1][1] =  None
+            self.dGrph[ari_id][1][2][1] =  None
+
+    def __processCfgBlck(self, blck_id, ip_str):
+        """
+            Processes the CFG blocks and sets the values of each output node.
+            Note: This function should only be called from __processBlcks()
+
+            Parameters
+            ----------
+            blck_id : str
+                Identifier of the block
+            ip_str : str
+                String of input values
+        """
+        self.dGrph[blck_id][1][1] = self.dGrph[blck_id][2][int(ip_str, 2)]
+
+        # update primary output if current block's output is primary output
+        if self.dGrph[blck_id][1][0] in self.__prime_op:
+            self.dGrph[self.dGrph[blck_id][1][0]][1] = self.dGrph[blck_id][1][1]
+
+    def __processAriBlck(self, blck_id, ip_str):
+        """
+            Processes the ARI blocks and sets the values of each output node.
+            Note: This function should only be called from __processBlcks()
+
+            Parameters
+            ----------
+            blck_id : str
+                Identifier of the block
+            ip_str : str
+                String of input values
+        """
+        # temp input variables to the block
+        A = ip_str[0]
+        B = ip_str[1]
+        C = ip_str[2]
+        D = ip_str[3]
+        FCI = self.__charToBool(ip_str[4])
+        INIT = self.dGrph[blck_id][2]   # config bit string
+        INIT16 = self.__charToBool(INIT[16])
+        INIT17 = self.__charToBool(INIT[17])
+
+        # intermediataries for calculating output
+        F0 = self.__charToBool(INIT[int('0' + B + C + D, 2)])
+        F1 = self.__charToBool(INIT[int('1' + B + C + D, 2)])
+        P = self.__charToBool(INIT[19]) | (~self.__charToBool(INIT[19]) & self.__charToBool(INIT[18]))
+        G = (F0 & INIT16 & INIT17) | (INIT17 & ~INIT16) | (F1 & INIT16 & INIT17)
+
+        # outputs
+        Y = self.__charToBool(INIT[int(A + B + C + D, 2)])
+        S = Y ^ FCI
+        FCO = (~P & G) | (P & FCI)
+        self.dGrph[blck_id][1][0][1] = self.__boolToChar(Y)
+        self.dGrph[blck_id][1][1][1] = self.__boolToChar(S)
+        self.dGrph[blck_id][1][2][1] = self.__boolToChar(FCO)
+
+        # update primary output if current block's output is primary output
+        if self.dGrph[blck_id][1][0][0] in self.__prime_op:
+            self.dGrph[self.dGrph[blck_id][1][0][0]][1] = self.dGrph[blck_id][1][0][1]
+        
+        if self.dGrph[blck_id][1][1][0] in self.__prime_op:
+            self.dGrph[self.dGrph[blck_id][1][1][0]][1] = self.dGrph[blck_id][1][1][1]
+        
+        if self.dGrph[blck_id][1][2][0] in self.__prime_op:
+            self.dGrph[self.dGrph[blck_id][1][2][0]][1] = self.dGrph[blck_id][1][2][1]
+
+        pass  
+
+    def __processBlcks(self, blck_id):
+        """
+            Processes the blocks and sets the values of each output node.
+
+            Parameters
+            ----------
+            blck_id : str
+                Identifier of the block
         """
         # Eliminating basic outliers
-        if cfg_id not in self.dGrph:
-            print(cfg_id, ' does not exist in the graph. Cannot process.')
+        if blck_id not in self.dGrph:
+            print(blck_id, ' does not exist in the graph. Cannot process.')
             return
         
+        # Constructing a string of inputs to a given block
+
         # Find the input and retrieve it's value
-        # Tuple format: (io_id, io_source, io_value) : '$' indicates prime_io, else it 
-        # is replaced by the config blck of origin.
+        # Tuple format: (io_id, io_source, io_value)
+        # In io_source,'$' indicates prime_io, else it 
+        # is replaced by the blck of origin.
 
         ip_str = ''     # string storing all inputs
         all_ios = self.__prime_ip + self.listIntermediateOps(True)
         abort_processing = False
-        for ip in self.dGrph[cfg_id][0]:    
+        for ip in self.dGrph[blck_id][0]:    
             found = False
             for i in range(0, len(all_ios)):
-                if all_ios[i][0] == ip:
+                if ip == all_ios[i][0]:
                     found = True
                     if all_ios[i][2] is not None:
                         ip_str += str(all_ios[i][2])
@@ -317,27 +560,31 @@ class VerilogGraph:
                         else:
                             print('Input: ', ip, ' is not entered. Processing blck: ', all_ios[i][1])
                             # process the blck to get input
-                            if(self.__processCfgBlck(all_ios[i][1])):
+                            if(self.__processBlcks(all_ios[i][1])):
                                 ip_str += str(self.dGrph[all_ios[i][1]][1][1])
                             else:
-                                print('Couldn\'t process cfg_blck: ', all_ios[i][1], '. Aborting processing blcks...')
+                                print('Couldn\'t process blck: ', all_ios[i][1], '. Aborting processing blcks...')
                                 abort_processing = True
                     break
             if not found:
-                print('Could not find input: ', ip, ' for cfg_blck: ', cfg_id, '. Aborting processing blcks...')
+                print('Could not find input: ', ip, ' for blck: ', blck_id, '. Aborting processing blcks...')
                 abort_processing = True
             if abort_processing:
                 return False
 
         # sanity check
-        # print('For: ', cfg_id, ' ip_str: ', ip_str)
-        if len(ip_str) != len(self.dGrph[cfg_id][0]):
+        # print('For: ', blck_id, ' ip_str: ', ip_str)
+        if len(ip_str) != len(self.dGrph[blck_id][0]):
             print('It\'s a bug! ip_str: ', ip_str)
             return False
-            
-        # Processing of blocks
-        self.dGrph[cfg_id][1][1] = self.dGrph[cfg_id][2][int(ip_str, 2)]
-        self.dGrph[self.dGrph[cfg_id][1][0]][1] = self.dGrph[cfg_id][1][1]
+    
+        # Calculating output
+        # Differentiating between types of blocks
+        if len(self.dGrph[blck_id][1]) == 3:    # ari block
+            self.__processAriBlck(blck_id, ip_str)
+        elif len(self.dGrph[blck_id][1]) == 2:  # cfg block
+            self.__processCfgBlck(blck_id, ip_str)
+        
         return True
 
     def simulate(self, inputs = None, bit_str = None):
@@ -365,16 +612,28 @@ class VerilogGraph:
             for i in range(0, len(inputs)):
                 self.setIpValue(inputs[i], int(bit_str[i]))
             
-        self.__processCfgSetup()
+        self.__simSetup()
 
-        cfg_blck_ids = [blck[0] for blck in self.listCfgBlcks()]
+        # iterating all cfg_blcks
+        blck_ids = [blck[0] for blck in self.listCfgBlcks()]
 
-        for cfg_id in cfg_blck_ids:
+        for cfg_id in blck_ids:
             if self.dGrph[cfg_id][1][1] == None:
-                if(self.__processCfgBlck(cfg_id)):
-                    print('Processed cgf_blck: ', cfg_id)
+                if(self.__processBlcks(cfg_id)):
+                    print('Processed cfg_blck: ', cfg_id)
                 else:
                     print('Some error in processing cfg_blck: ', cfg_id)
+        
+        # iterating all ari_blcks
+        blck_ids = [blck[0] for blck in self.listAriBlcks()]
+
+        for ari_id in blck_ids:
+            # checking if one output is None because all outputs are set simultaneously
+            if self.dGrph[ari_id][1][0][1] == None:
+                if(self.__processBlcks(ari_id)):
+                    print('Processed ari_blck: ', ari_id)
+                else:
+                    print('Some error in processing ari_blck: ', ari_id)
 
 # for unit testing this module
 if __name__ == '__main__':
@@ -392,12 +651,15 @@ if __name__ == '__main__':
     vg.addPrimeIo('o_2', 'o')
     
     # connections to cfg blcks
-    vg.addCfgBlck('cfg1', ('i_1', 'i_2', 'i_3'), 'o_1', 'c2')
-    vg.addCfgBlck('cfg2', ('i_4', 'o_1', 'i_5'), 'o_2', '57')
+    vg.addCfgBlck('cfg1', ('i_1', 'i_2', 'i_3'), 'cfg1_o', 'c2')
+    vg.addCfgBlck('cfg2', ('i_4', 'cfg1_o', 'i_5'), 'cfg2_o', '57')
+
+    vg.addAriBlck('ari1', ['i_1', 'cfg1_o', 'i_4', 'cfg1_o', 'cfg2_o'], ['ari1_y', 'ari1_s', 'o_2'], 'A5D21')
+    vg.addAriBlck('ari2', ['i_2', 'cfg2_o', 'i_5', 'i_3', 'i_4'], ['ari2_y', 'o_1', 'ari2_fco'], 'EC9B5')
 
     # setting input values
-    vg.setIpValue('i_1', 0)
-    vg.setIpValue('i_2', 1)
+    vg.setIpValue('i_1', 1)
+    vg.setIpValue('i_2', 0)
     vg.setIpValue('i_3', 1)
     vg.setIpValue('i_4', 0)
     vg.setIpValue('i_5', 0)
@@ -410,6 +672,8 @@ if __name__ == '__main__':
     vg.printPrimeIos(True)
     print(10*'-')
     vg.printCfgBlcks(True)
+    print(10*'-')
+    vg.printAriBlcks(True)
 
     # simulation - test 2
     vg.simulate(['i_1', 'i_2', 'i_3', 'i_4', 'i_5'], '01010')
@@ -419,6 +683,8 @@ if __name__ == '__main__':
     vg.printPrimeIos(True)
     print(10*'-')
     vg.printCfgBlcks(True)
+    print(10*'-')
+    vg.printAriBlcks(True)
 
     # simulation - test 3
     vg.simulate(['i_1', 'i_2', 'i_3', 'i_4', 'i_5'], '11010')
@@ -428,5 +694,7 @@ if __name__ == '__main__':
     vg.printPrimeIos(True)
     print(10*'-')
     vg.printCfgBlcks(True)
+    print(10*'-')
+    vg.printAriBlcks(True)
 
     pass
