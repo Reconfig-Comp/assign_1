@@ -19,6 +19,8 @@ Before performing simulation, all the primary input values must be set to [1 | 0
 #### Implementation
 ```
 # Graph creation >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+vg = VerilogGraph()
+
 # inputs
 vg.addPrimeIo('i_1', 'i')
 vg.addPrimeIo('i_2', 'i')
@@ -29,13 +31,17 @@ vg.addPrimeIo('i_5', 'i')
 # outputs
 vg.addPrimeIo('o_1', 'o')
 vg.addPrimeIo('o_2', 'o')
+vg.addPrimeIo('o_3', 'o')
 
-# connections to cfg blcks
 vg.addCfgBlck('cfg1', ('i_1', 'i_2', 'i_3'), 'cfg1_o', 'c2')
 vg.addCfgBlck('cfg2', ('i_4', 'cfg1_o', 'i_5'), 'cfg2_o', '57')
 
-vg.addAriBlck('ari1', ['i_1', 'cfg1_o', 'i_4', 'cfg1_o', 'cfg2_o'], ['ari1_y', 'ari1_s', 'o_2'], 'A5D21')
-vg.addAriBlck('ari2', ['i_2', 'cfg2_o', 'i_5', 'i_3', 'i_4'], ['ari2_y', 'o_1', 'ari2_fco'], 'EC9B5')
+vg.addAriBlck('ari1', ['i_1', 'cfg1_o', 'tri1_op', 'cfg1_o', 'cfg2_o'], ['ari1_y', 'ari1_s', 'o_2'], 'A5D21')
+vg.addAriBlck('ari2', ['tri2_op', 'cfg2_o', 'i_5', 'i_3', 'i_4'], ['ari2_y', 'o_1', 'ari2_fco'], 'EC9B5')
+
+vg.addTribuf('tri1', 'i_4', 'i_1', 'tri1_op')
+vg.addTribuf('tri2', 'cfg2_o', 'i_3', 'tri2_op')
+vg.addTribuf('tri3', 'ari1_y', 'cfg1_o', 'o_3')
 
 # setting input values
 vg.setIpValue('i_1', 1)
@@ -56,6 +62,8 @@ print(10*'-')
 vg.printCfgBlcks(True)
 print(10*'-')
 vg.printAriBlcks(True)
+print(10*'-')
+vg.printTribufs(True)
 ```
 
 ![example_op](../multimedia/example_op.png)
