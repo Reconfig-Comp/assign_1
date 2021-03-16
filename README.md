@@ -14,8 +14,10 @@
 - `multimedia`: contains images shown in this file
 
 ## Our approach to the problem
-We have described a class called `VerilogGraph`. This class describes a graph that has two types nodes:
+We have described a class called `VerilogGraph`. This class describes a graph that has 4 types nodes:
 1. Primary I/O node
 2. Configuration block node
+3. ARI block node
+4. Tribuff node
 
 At implementation level, each node is an entry in a dictionary `dGrph` (member variable of class `VerilogGraph`). More information about the class [here](./docs/on_VerilogGraph.md).
