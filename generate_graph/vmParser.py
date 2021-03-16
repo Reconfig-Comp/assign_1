@@ -48,6 +48,7 @@ class Parser:
 
         self.iobuf = {}          # Input buffer mapping (Primary Input : wire)
         self.CFGio = []          # Stores the configuration module details temporarily
+        self.ARI1io = []          # Stores the ARI1 module details temporarily
         self.graph = gu.VerilogGraph() # VerilogGraph object
 
 
@@ -109,7 +110,7 @@ class Parser:
                 self.lineData = re.split('[()]', self.fData[self.lineNo-1] + self.fData[self.lineNo])
                 self.iobuf.update({self.lineData[3]: self.lineData[1]})
 
-            # if the first word of the line starts with 'CFG', then this is the module used in the program
+            # if the first word of the line starts with 'CFG', then this is the configuration block used in the program
             elif re.match('^C+F+G', self.lineData[0]):
                 self.module = self.lineData[1]     # Storing the module name
                 self.lineNo += 1        
@@ -121,8 +122,24 @@ class Parser:
                 self.lineNo += 1
                 self.lineData = re.split('[=h;\n]', self.fData[self.lineNo])
                 self.__mapIO(self.iobuf, self.CFGio)
+                #print(self.module, self.lineData[2])
                 self.graph.addCfgBlck(self.module, [self.CFGio[i] for i in range(len(self.CFGio)-1)], self.CFGio[len(self.CFGio)-1], self.lineData[2])
                 self.CFGio = []
+
+            # if the first word of the line starts with 'ARI1', then this is the ARI1 module used in the program
+            elif self.lineData[0] == 'ARI1':
+                self.module = self.lineData[1]      # Storing the module name
+                self.lineNo += 1        
+                while self.fData[self.lineNo] != ');\n':    # Until ');' keep reading the next line for inputs & outputs
+                    self.lineData = re.split('[()]', self.fData[self.lineNo]) 
+                    self.ARI1io.append(self.lineData[1])
+                    self.lineNo += 1
+
+                self.lineNo += 1
+                self.lineData = re.split('[=h;\n]', self.fData[self.lineNo])
+                self.__mapIO(self.iobuf, self.ARI1io)
+                self.graph.addAriBlck(self.module, [self.ARI1io[i] for i in range(3,8)], [self.ARI1io[i] for i in range(3)], self.lineData[2])
+                self.ARI1io = []
                 
             self.lineNo += 1 # Incrementing the lineNo to read next line
 
@@ -133,7 +150,7 @@ Testing the class
 
 if __name__ == '__main__':
     
-    path = os.getcwd() + '/../test_cases/vm_files/c17.vm'
+    path = os.getcwd() + '/../test_cases/vm_files/c2670.vm'
     c17 = Parser(path)
     c17.Parse()
 
