@@ -655,8 +655,8 @@ if __name__ == '__main__':
     vg.addAriBlck('ari2', ['i_2', 'cfg2_o', 'i_5', 'i_3', 'i_4'], ['ari2_y', 'o_1', 'ari2_fco'], 'EC9B5')
 
     # setting input values
-    vg.setIpValue('i_1', 0)
-    vg.setIpValue('i_2', 1)
+    vg.setIpValue('i_1', 1)
+    vg.setIpValue('i_2', 0)
     vg.setIpValue('i_3', 1)
     vg.setIpValue('i_4', 0)
     vg.setIpValue('i_5', 0)
