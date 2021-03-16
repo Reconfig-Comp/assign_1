@@ -19,7 +19,10 @@ class VerilogGraph:
                 {'ariBlck_id': [('A', 'B', 'C', 'D', 'FCI'), [['Y', 1|0], ['S', 1|0], ['FCO', 1|0]], 'cfg_string']}
         __prime_ip : list
             list of primary inputs in the VerilogGraph. Private attribute used to
-            better process the cfg_blcks
+            better process the blcks
+        __prime_op : list
+            list of primary outputs in the VerilogGraph. Private attribute used to
+            better process blcks
 
         Methods
         -------
@@ -43,6 +46,8 @@ class VerilogGraph:
                 Graph creation methods
                     * __convertToBinaryStr(hex_str)
                 Graph simulation methods
+                    * __charToBool(char)
+                    * __boolToChar(boolean)
                     * __simSetup()
                     * __processCgfBlck()
                     * __processAriBlck()
@@ -58,6 +63,7 @@ class VerilogGraph:
         """
         self.dGrph = {}
         self.__prime_ip = []
+        self.__prime_op = []
     
     def __convertToBinaryStr(self, hex_str):
         """
@@ -98,6 +104,9 @@ class VerilogGraph:
             return
         
         self.dGrph[io_id] = [io_type, None]
+
+        if io_type == 'o':
+            self.__prime_op.append(io_id) 
 
     def addCfgBlck(self, cfg_id, inputs, output, config):
         """
@@ -385,11 +394,52 @@ class VerilogGraph:
         
         self.dGrph[ip_id][1] = v
     
+    def __charToBool(self, char):
+        """
+            Converts '1' to True and '0' to False
+
+            Parameters
+            ----------
+            char : str
+                Either '1' or '0'
+            
+            Returns
+            -------
+            True, if char == '1' ; False, if char == '0'
+        """
+
+        if char == '1':
+            return True
+        elif char == '0':
+            return False
+    
+    def __boolToChar(self, boolean):
+        """
+            Converts True to '1' and False to '0'
+
+            Parameters
+            ----------
+            boolean : bool
+            
+            Returns
+            -------
+            '1', if boolean == True ; '0', if boolean == False
+        """
+
+        if boolean:
+            return '1'
+        else:
+            return '0'
+
     def __simSetup(self):
         """
             Performs pre-requisites before simulation.
         """
         self.__prime_ip = [(io[0], '$', io[2]) for io in self.listPrimeIos(True) if io[1] == 'i']
+
+        # setting primary output values to None
+        for prime_op in self.__prime_op:
+            self.dGrph[prime_op][1] = None
 
         # setting cfg_blck output values to None
         cfg_blck_ids = [blck[0] for blck in self.listCfgBlcks()]
@@ -417,6 +467,10 @@ class VerilogGraph:
         """
         self.dGrph[blck_id][1][1] = self.dGrph[blck_id][2][int(ip_str, 2)]
 
+        # update primary output if current block's output is primary output
+        if self.dGrph[blck_id][1][0] in self.__prime_op:
+            self.dGrph[self.dGrph[blck_id][1][0]][1] = self.dGrph[blck_id][1][1]
+
     def __processAriBlck(self, blck_id, ip_str):
         """
             Processes the ARI blocks and sets the values of each output node.
@@ -429,7 +483,40 @@ class VerilogGraph:
             ip_str : str
                 String of input values
         """
-        # TODO: ARI processing logic from Vishva's notes
+        # temp input variables to the block
+        A = ip_str[0]
+        B = ip_str[1]
+        C = ip_str[2]
+        D = ip_str[3]
+        FCI = self.__charToBool(ip_str[4])
+        INIT = self.dGrph[blck_id][2]   # config bit string
+        INIT16 = self.__charToBool(INIT[16])
+        INIT17 = self.__charToBool(INIT[17])
+
+        # intermediataries for calculating output
+        F0 = self.__charToBool(INIT[int('0' + B + C + D, 2)])
+        F1 = self.__charToBool(INIT[int('1' + B + C + D, 2)])
+        P = self.__charToBool(INIT[19]) | (~self.__charToBool(INIT[19]) & self.__charToBool(INIT[18]))
+        G = (F0 & INIT16 & INIT17) | (INIT17 & ~INIT16) | (F1 & INIT16 & INIT17)
+
+        # outputs
+        Y = self.__charToBool(INIT[int(A + B + C + D, 2)])
+        S = Y ^ FCI
+        FCO = (~P & G) | (P & FCI)
+        self.dGrph[blck_id][1][0][1] = self.__boolToChar(Y)
+        self.dGrph[blck_id][1][1][1] = self.__boolToChar(S)
+        self.dGrph[blck_id][1][2][1] = self.__boolToChar(FCO)
+
+        # update primary output if current block's output is primary output
+        if self.dGrph[blck_id][1][0][0] in self.__prime_op:
+            self.dGrph[self.dGrph[blck_id][1][0][0]][1] = self.dGrph[blck_id][1][0][1]
+        
+        if self.dGrph[blck_id][1][1][0] in self.__prime_op:
+            self.dGrph[self.dGrph[blck_id][1][1][0]][1] = self.dGrph[blck_id][1][1][1]
+        
+        if self.dGrph[blck_id][1][2][0] in self.__prime_op:
+            self.dGrph[self.dGrph[blck_id][1][2][0]][1] = self.dGrph[blck_id][1][2][1]
+
         pass  
 
     def __processBlcks(self, blck_id):
@@ -524,14 +611,26 @@ class VerilogGraph:
             
         self.__simSetup()
 
-        cfg_blck_ids = [blck[0] for blck in self.listCfgBlcks()]
+        # iterating all cfg_blcks
+        blck_ids = [blck[0] for blck in self.listCfgBlcks()]
 
-        for cfg_id in cfg_blck_ids:
+        for cfg_id in blck_ids:
             if self.dGrph[cfg_id][1][1] == None:
                 if(self.__processBlcks(cfg_id)):
-                    print('Processed cgf_blck: ', cfg_id)
+                    print('Processed cfg_blck: ', cfg_id)
                 else:
                     print('Some error in processing cfg_blck: ', cfg_id)
+        
+        # iterating all ari_blcks
+        blck_ids = [blck[0] for blck in self.listAriBlcks()]
+
+        for ari_id in blck_ids:
+            # checking if one output is None because all outputs are set simultaneously
+            if self.dGrph[ari_id][1][0][1] == None:
+                if(self.__processBlcks(ari_id)):
+                    print('Processed ari_blck: ', ari_id)
+                else:
+                    print('Some error in processing ari_blck: ', ari_id)
 
 # for unit testing this module
 if __name__ == '__main__':
@@ -550,10 +649,10 @@ if __name__ == '__main__':
     
     # connections to cfg blcks
     vg.addCfgBlck('cfg1', ('i_1', 'i_2', 'i_3'), 'cfg1_o', 'c2')
-    vg.addCfgBlck('cfg2', ('i_4', 'o_1', 'i_5'), 'cfg2_o', '57')
+    vg.addCfgBlck('cfg2', ('i_4', 'cfg1_o', 'i_5'), 'cfg2_o', '57')
 
-    vg.addAriBlck('ari1', ['i_1', 'cfg1_o', 'i_4', 'cfg1_o', 'cfg2_o'], ['ari1_y', 'ari1_s', 'ari1_fco'], 'A5D21')
-    vg.addAriBlck('ari2', ['i_2', 'cfg2_o', 'i_5', 'i_3', 'i_4'], ['ari2_y', 'ari2_s', 'ari2_fco'], 'EC9B5')
+    vg.addAriBlck('ari1', ['i_1', 'cfg1_o', 'i_4', 'cfg1_o', 'cfg2_o'], ['ari1_y', 'ari1_s', 'o_2'], 'A5D21')
+    vg.addAriBlck('ari2', ['i_2', 'cfg2_o', 'i_5', 'i_3', 'i_4'], ['ari2_y', 'o_1', 'ari2_fco'], 'EC9B5')
 
     # setting input values
     vg.setIpValue('i_1', 0)
@@ -570,6 +669,8 @@ if __name__ == '__main__':
     vg.printPrimeIos(True)
     print(10*'-')
     vg.printCfgBlcks(True)
+    print(10*'-')
+    vg.printAriBlcks(True)
 
     # simulation - test 2
     vg.simulate(['i_1', 'i_2', 'i_3', 'i_4', 'i_5'], '01010')
@@ -579,6 +680,8 @@ if __name__ == '__main__':
     vg.printPrimeIos(True)
     print(10*'-')
     vg.printCfgBlcks(True)
+    print(10*'-')
+    vg.printAriBlcks(True)
 
     # simulation - test 3
     vg.simulate(['i_1', 'i_2', 'i_3', 'i_4', 'i_5'], '11010')
