@@ -1,7 +1,8 @@
 # assign_1
  
 ### Objective
- To model the graph for the given any combinational input circuit and simulating it.
+1. **Assignment 1:** Parse the VM file and generate a biparted graph.
+2. **Assignment 2:** Simulate graph
 #### Authors
 | Roll No. | Name |
 | --- | --- |
