@@ -111,7 +111,12 @@ class VerilogGraph:
             print('io_id already exists. No node added.')
             return
         
-        self.dGrph[io_id] = [io_type, None]
+        if io_id == 'VCC':
+            self.dGrph[io_id] = [io_type, 1]
+        elif io_id == 'GND':
+            self.dGrph[io_id] = [io_type, 0]
+        else:
+            self.dGrph[io_id] = [io_type, None]
 
         if io_type == 'o':
             self.__prime_op.append(io_id) 
@@ -476,11 +481,11 @@ class VerilogGraph:
         """
             Sets random input values to all the primary inputs
         """
-        prime_ips = [io[0] for io in self.listPrimeIos() if io[1] == 'i']
+        prime_ips = [io[0] for io in self.listPrimeIos() if (io[1] == 'i' and (io[0] not in ['VCC', 'GND']))]
         bit_str = self.__randomStringGen(len(prime_ips))
 
         for idx, ip in enumerate(prime_ips):
-            self.dGrph[ip][1] = bit_str[idx]
+            self.dGrph[ip][1] = int(bit_str[idx])
 
     def __charToBool(self, char):
         """
@@ -778,7 +783,7 @@ class VerilogGraph:
             Generates a binary string of input length
         """
         binString = ''
-        for i in range(len):
+        for _ in range(len):
             binString = binString + str(random.randrange(100)%2)
 
         return binString
