@@ -22,4 +22,4 @@ if __name__ == '__main__':
     # Parsing c17.vm
     c1355.Parse()
     [c1355.graph.printCfgBlcks(True)]
-
+    c1355.graph.simulate(True)

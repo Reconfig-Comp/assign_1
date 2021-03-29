@@ -2,6 +2,7 @@
 Utility module providing the graph data structure, designed for simulating Verilog netlists.
 The member functions aid in building, modifying, and simulating the graph.
 """
+import random
 
 class VerilogGraph:
     """
@@ -767,6 +768,18 @@ class VerilogGraph:
                     print('Processed tribuf: ', tri_id)
                 else:
                     print('Some error in processing tribuf: ', tri_id)
+
+
+    '''
+    Generating a n-bit random binary string
+    '''
+    def __randomStringGen(self, len):
+        binString = ''
+        for i in range(len):
+            binString = binString + str(random.randrange(100)%2)
+
+        return binString
+
 
 # for unit testing this module
 if __name__ == '__main__':
