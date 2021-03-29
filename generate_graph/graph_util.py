@@ -73,7 +73,7 @@ class VerilogGraph:
         self.__prime_ip = []
         self.__prime_op = []
     
-    def __convertToBinaryStr(self, hex_str):
+    def __convertToBinaryStr(self, hex_str, blck_id):
         """
             Converts a hexadecimal string of n length to binary string of 4*n length
 
@@ -89,12 +89,10 @@ class VerilogGraph:
         final_bi_str = ''
         for c in hex_str:
             bi_str = bin(int(c, 16))[2:]
-            final_bi_str += (4 - len(bi_str)%4)*'0' + bi_str
-        
-        # sanity check
-        if (len(bi_str)%4 == 0 and (len(hex_str)*4) == len(bi_str)):
-            print('DJLNJLDNFL')
-
+            if not(len(bi_str)%4 == 0 and (len(hex_str)*4) == len(bi_str)):
+                final_bi_str += (4 - len(bi_str)%4)*'0' + bi_str
+            else:
+                final_bi_str = bi_str
         return final_bi_str
 
     def addPrimeIo(self, io_id, io_type):
@@ -154,7 +152,7 @@ class VerilogGraph:
         """
         # Eliminating basic outlier conditions
         if (len(inputs) == 1 and len(config) == 1):
-            self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config)[::-1]]
+            self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config, cfg_id)[::-1]]
             return
         if (len(inputs) <= 2 and len(config) != 1) or (len(config) != 2**(len(inputs) - 2)):
             print('Configuration string and number of inputs do not match. No node added.')
@@ -163,7 +161,7 @@ class VerilogGraph:
             print('cfg_id already exists. No node added.')
             return
         
-        self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config)[::-1]]
+        self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config, cfg_id)[::-1]]
     
     def addAriBlck(self, ari_id, inputs, outputs, config):
         """
@@ -203,7 +201,7 @@ class VerilogGraph:
             print('Invalid length of configuration string. No node added.')
             return
 
-        self.dGrph[ari_id] = [tuple(inputs), [[outputs[0], None], [outputs[1], None], [outputs[2], None]], self.__convertToBinaryStr(config)[::-1]]
+        self.dGrph[ari_id] = [tuple(inputs), [[outputs[0], None], [outputs[1], None], [outputs[2], None]], self.__convertToBinaryStr(config, ari_id)[::-1]]
 
     def addTribuf(self, tribuf_id, ip, ctrl, op):
         """
@@ -607,7 +605,6 @@ class VerilogGraph:
             D = ip_str[3]
             FCI = self.__charToBool(ip_str[4])
             INIT = self.dGrph[blck_id][2]   # config bit string
-            print("**********", INIT, blck_id)
             INIT16 = self.__charToBool(INIT[16])
             INIT17 = self.__charToBool(INIT[17])
 

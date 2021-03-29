@@ -10,22 +10,20 @@ import os
 if __name__ == '__main__':
 
     # Relative path 
-    relativePath = '/../test_cases/vm_files/c2670.vm'
+    relativePath = '/../test_cases/vm_files/c6288.vm'
 
     # Absolute file path
     filepath = os.getcwd() + relativePath
     print(filepath)
 
-    # Creating a Parser object named c17
-    c1355 = vmParser.Parser(filepath)
+    circuit = vmParser.Parser(filepath)
 
-    # Parsing c17.vm
-    c1355.Parse()
-    c1355.graph.setRandomInputs()
-    [c1355.graph.printPrimeIos(True)]
-    [c1355.graph.printCfgBlcks(True)]
-    c1355.graph.simulate()
+    circuit.Parse()
+    circuit.graph.setRandomInputs()
+    [circuit.graph.printPrimeIos(True)]
+    [circuit.graph.printCfgBlcks(True)]
+    circuit.graph.simulate()
     print(20*'*')
-    [c1355.graph.printPrimeIos(True)]
-    [c1355.graph.printCfgBlcks(True)] 
+    [circuit.graph.printPrimeIos(True)]
+    [circuit.graph.printCfgBlcks(True)] 
     
