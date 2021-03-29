@@ -83,13 +83,13 @@ class Parser:
             or 'endmodule' or '`timescale' or 'wire' then go to next line
             '''
             if (len(self.lineData) == 0 or self.lineData[0] == '//' or
-                self.lineData[0] == 'endmodule' or self.lineData[0] == '`timescale'
-                or self.lineData[0] == 'wire'):
+                self.lineData[0] == 'endmodule' or self.lineData[0] == '`timescale'):
                 self.lineNo += 1
                 continue
 
             #if the first word of the line is input, then store the name of primary input variable in input list
-            elif self.lineData[0] == 'input':
+            elif (self.lineData[0] == 'input' or (self.lineData[0] == 'wire' and 
+                 (self.lineData[1] == 'GND' or self.lineData[1] == 'VCC'))):
                 self.graph.addPrimeIo(self.lineData[1], 'i')
 
             # if the first word of the line is output, then store the name of primary output variable in output list   
@@ -153,6 +153,7 @@ if __name__ == '__main__':
     path = os.getcwd() + '/../test_cases/vm_files/c2670.vm'
     c17 = Parser(path)
     c17.Parse()
+    c17.graph.printPrimeIos()
 
     
 
