@@ -10,7 +10,7 @@ import os
 if __name__ == '__main__':
 
     # Relative path 
-    relativePath = '/../test_cases/vm_files/c1908.vm'
+    relativePath = '/../test_cases/vm_files/c2670.vm'
 
     # Absolute file path
     filepath = os.getcwd() + relativePath
@@ -21,5 +21,5 @@ if __name__ == '__main__':
 
     # Parsing c17.vm
     c1355.Parse()
-    [c1355.graph.printCfgBlcks()]
+    c1355.graph.simulate(True)
 
