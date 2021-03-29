@@ -44,6 +44,7 @@ class VerilogGraph:
                     * printTribuf()
                 Graph simulation methods
                     * setIpValue()
+                    * setRandomInputs()
                     * simulate(inputs, bit_str)
 
             Private:
@@ -299,7 +300,7 @@ class VerilogGraph:
         else:
             print('Node ID - Config - Inputs - Output')
             for node in cfg_blcks:
-                print(node[0], ' - ', node[1][::-1], ' - ', node[2], ' - ', node[3][0])
+                print(node[0], ' - ', node[1][::-1], ' - ', node[2], ' - ', node[3])
 
     def listAriBlcks(self, show_bit_value = False):
         """
@@ -470,6 +471,16 @@ class VerilogGraph:
         
         self.dGrph[ip_id][1] = v
     
+    def setRandomInputs(self):
+        """
+            Sets random input values to all the primary inputs
+        """
+        prime_ips = [io[0] for io in self.listPrimeIos() if io[1] == 'i']
+        bit_str = '10101'
+
+        for idx, ip in enumerate(prime_ips):
+            self.dGrph[ip][1] = bit_str[idx]
+
     def __charToBool(self, char):
         """
             Converts '1' to True and '0' to False
