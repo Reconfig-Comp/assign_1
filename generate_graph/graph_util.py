@@ -477,7 +477,7 @@ class VerilogGraph:
             Sets random input values to all the primary inputs
         """
         prime_ips = [io[0] for io in self.listPrimeIos() if io[1] == 'i']
-        bit_str = '10101'
+        bit_str = self.__randomStringGen(len(prime_ips))
 
         for idx, ip in enumerate(prime_ips):
             self.dGrph[ip][1] = bit_str[idx]
@@ -562,7 +562,11 @@ class VerilogGraph:
         if 'Z' in ip_str:
             self.dGrph[blck_id][1][1] = 'Z'
         else:
-            self.dGrph[blck_id][1][1] = self.dGrph[blck_id][2][int(ip_str, 2)]
+            if len(ip_str) == 1:
+                self.dGrph[blck_id][1][1] = int(ip_str, 2)
+            else:
+                print(ip_str)
+                self.dGrph[blck_id][1][1] = self.dGrph[blck_id][2][int(ip_str, 2)]
 
         # update primary output if current block's output is primary output
         if self.dGrph[blck_id][1][0] in self.__prime_op:
@@ -769,11 +773,10 @@ class VerilogGraph:
                 else:
                     print('Some error in processing tribuf: ', tri_id)
 
-
-    '''
-    Generating a n-bit random binary string
-    '''
     def __randomStringGen(self, len):
+        """
+            Generates a binary string of input length
+        """
         binString = ''
         for i in range(len):
             binString = binString + str(random.randrange(100)%2)
@@ -841,7 +844,8 @@ if __name__ == '__main__':
     vg.printTribufs(True)
 
     # simulation - test 3
-    vg.simulate(['i_1', 'i_2', 'i_3', 'i_4', 'i_5'], '11010')
+    vg.setRandomInputs()
+    vg.simulate()
 
     # printing
     print('Simulation test 3')
