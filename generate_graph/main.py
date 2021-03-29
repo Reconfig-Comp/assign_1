@@ -24,5 +24,8 @@ if __name__ == '__main__':
     c1355.graph.setRandomInputs()
     [c1355.graph.printPrimeIos(True)]
     [c1355.graph.printCfgBlcks(True)]
-    c1355.graph.simulate()    
+    c1355.graph.simulate()
+    print(20*'*')
+    [c1355.graph.printPrimeIos(True)]
+    [c1355.graph.printCfgBlcks(True)] 
     

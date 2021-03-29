@@ -85,12 +85,17 @@ class VerilogGraph:
             Returns
             -------
             Binary string of length 4*n. Eg: '000110101011'
-        """
-        bi_str = bin(int(hex_str, 16))[2:]
+        """     
+        final_bi_str = ''
+        for c in hex_str:
+            bi_str = bin(int(c, 16))[2:]
+            final_bi_str += (4 - len(bi_str)%4)*'0' + bi_str
+        
+        # sanity check
         if (len(bi_str)%4 == 0 and (len(hex_str)*4) == len(bi_str)):
-            return bi_str
-        else:
-            return (4 - len(bi_str)%4)*'0' + bi_str
+            print('DJLNJLDNFL')
+
+        return final_bi_str
 
     def addPrimeIo(self, io_id, io_type):
         """
