@@ -87,7 +87,7 @@ class VerilogGraph:
             Binary string of length 4*n. Eg: '000110101011'
         """
         bi_str = bin(int(hex_str, 16))[2:]
-        if len(hex_str) == 1 or len(bi_str)%4 == 0:
+        if (len(bi_str)%4 == 0 and (len(hex_str)*4) == len(bi_str)):
             return bi_str
         else:
             return (4 - len(bi_str)%4)*'0' + bi_str
@@ -570,7 +570,7 @@ class VerilogGraph:
             if len(ip_str) == 1:
                 self.dGrph[blck_id][1][1] = int(ip_str, 2)
             else:
-                print(ip_str)
+                print(blck_id, self.dGrph[blck_id][2])
                 self.dGrph[blck_id][1][1] = self.dGrph[blck_id][2][int(ip_str, 2)]
 
         # update primary output if current block's output is primary output
@@ -602,6 +602,7 @@ class VerilogGraph:
             D = ip_str[3]
             FCI = self.__charToBool(ip_str[4])
             INIT = self.dGrph[blck_id][2]   # config bit string
+            print("**********", INIT, blck_id)
             INIT16 = self.__charToBool(INIT[16])
             INIT17 = self.__charToBool(INIT[17])
 
