@@ -52,7 +52,7 @@ class Parser:
         self.graph = gu.VerilogGraph() # VerilogGraph object
 
 
-    def __mapIO(self, iobuf, cfgIO):
+    def __mapIO(self, cfgIO):
         '''
         Maps the wire to their corresponding primary input/output
         Inputs:
@@ -61,16 +61,16 @@ class Parser:
         '''
         for key, value in self.iobuf.items():
             for j in range(len(cfgIO)):
-                if key == cfgIO[j]:
-                    cfgIO[j] = value
+                if value == cfgIO[j]:
+                    cfgIO[j] = key
 
 
     def Parse(self):
+
         '''
-        Parses the file line by line
+        Reads the complete file once, searching for buffers
         '''
         while 1:
-
             # if the end of the file is reached, break
             if self.lineNo >= self.lines:
                 break
@@ -101,16 +101,41 @@ class Parser:
                 # Reading the input and output of buffer from next 2 lines
                 self.lineNo += 2
                 self.lineData = re.split('[()]', self.fData[self.lineNo-1] + self.fData[self.lineNo])
-                self.iobuf.update({self.lineData[1]: self.lineData[3]})
+                self.iobuf.update({self.lineData[3]: self.lineData[1]})
 
             # if the first word of the line is OUTBUF, then store the name of wire and primary output as a pair in outbuf list
             elif self.lineData[0] == 'OUTBUF':
                 # Reading the input and output of buffer from next 2 lines
                 self.lineNo += 2
                 self.lineData = re.split('[()]', self.fData[self.lineNo-1] + self.fData[self.lineNo])
-                self.iobuf.update({self.lineData[3]: self.lineData[1]})
+                self.iobuf.update({self.lineData[1]: self.lineData[3]})
+            
+            self.lineNo +=1
+        
+        self.lineNo = 0   # Resetting the line No for reading the file from start
+        
+        '''
+        Parses the file line by line
+        '''
+        print('Reading file for the second time', self.lineNo)
+        while 1:
+
+           # if the end of the file is reached, break
+            if self.lineNo >= self.lines:
+                break
+
+            # Splitting the current line into separate characters
+            self.lineData = self.fData[self.lineNo].split()
 
             # if the first word of the line starts with 'CFG', then this is the configuration block used in the program
+            if (len(self.lineData) == 0 or self.lineData[0] == '//' or
+                self.lineData[0] == 'endmodule' or self.lineData[0] == '`timescale' or
+                self.lineData[0] == 'input' or (self.lineData[0] == 'wire' and 
+                (self.lineData[1] == 'GND' or self.lineData[1] == 'VCC')) or 
+                self.lineData[0] == 'output' or self.lineData[0] == 'INBUF' or 
+                self.lineData[0] == 'OUTBUF'):
+                pass
+            
             elif re.match('^C+F+G', self.lineData[0]):
                 self.module = self.lineData[1]     # Storing the module name
                 self.lineNo += 1        
@@ -121,8 +146,8 @@ class Parser:
                     
                 self.lineNo += 1
                 self.lineData = re.split('[=h;\n]', self.fData[self.lineNo])
-                self.__mapIO(self.iobuf, self.CFGio)
-                #print(self.module, self.lineData[2])
+                self.__mapIO(self.CFGio)
+                #print(len([self.CFGio[i] for i in range(len(self.CFGio)-1)]))
                 self.graph.addCfgBlck(self.module, [self.CFGio[i] for i in range(len(self.CFGio)-1)], self.CFGio[len(self.CFGio)-1], self.lineData[2])
                 self.CFGio = []
 
@@ -137,7 +162,7 @@ class Parser:
 
                 self.lineNo += 1
                 self.lineData = re.split('[=h;\n]', self.fData[self.lineNo])
-                self.__mapIO(self.iobuf, self.ARI1io)
+                self.__mapIO(self.ARI1io)
                 self.graph.addAriBlck(self.module, [self.ARI1io[i] for i in range(3,8)], [self.ARI1io[i] for i in range(3)], self.lineData[2])
                 self.ARI1io = []
                 
