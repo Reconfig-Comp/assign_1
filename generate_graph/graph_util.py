@@ -11,7 +11,7 @@ class VerilogGraph:
         Attributes
         ----------
         dGrph : dictionary
-            Dictionary storing the graph. Three types of nodes:
+            Dictionary storing the graph. Six types of nodes:
             - prime_io node : 
                 {'primeIo_id': 'io_type', 1|0|Z}
             - cfg_blck node : 
@@ -19,7 +19,11 @@ class VerilogGraph:
             - ari_blck node:
                 {'ariBlck_id': [('A', 'B', 'C', 'D', 'FCI'), [['Y', 1|0|Z], ['S', 1|0|Z], ['FCO', 1|0|Z]], 'cfg_string']}
             - tribuf node:
-                {'tribuf_id': [(input, ctrl), [ctrl], [output, 1|0|Z]]} ([ctrl] is added to differentiate tribuf node from other nodes)
+                {'tribuf_id': [(input, ctrl), [ctrl], [output, 1|0|Z]] ([ctrl] is added to differentiate tribuf node from other nodes)
+            - and_gate node:
+                {'and_gate_id': [('ip0', 'ip1', 'ip3'), ['A', output, 1|0|Z]]
+            - or_gate node:
+                {'or_gate_id': [('ip0', 'ip1', 'ip3'), ['O', output, 1|0|Z]]
         __prime_ip : list
             list of primary inputs in the VerilogGraph. Private attribute used to
             better process the blcks
@@ -35,14 +39,19 @@ class VerilogGraph:
                     * addCfgBlck(blck_id, inputs, output, config)
                     * addAriBlck(blck_id, inputs, outputs, config)
                     * addTribuf(blck_id, input, ctrl, output)
+                    * __addGate(blck_id, gate_type, input, output)
+                    * triplicateBlck(blck_id)
                     * listPrimeIos()
                     * listCfgBlcks()
                     * listAriBlcks()
                     * listTribuf()
+                    * listGates()
+                    * listIntermediateOps()
                     * printPrimeIos()
                     * printCfgBlcks()
                     * printAriBlcks()
                     * printTribuf()
+                    * printGates()
                 Graph simulation methods
                     * setIpValue()
                     * setRandomInputs()
@@ -59,6 +68,7 @@ class VerilogGraph:
                     * __processCgfBlck()
                     * __processAriBlck()
                     * __processTribuf()
+                    * __processGates()
                     * __processBlcks()
 
     """
@@ -73,7 +83,7 @@ class VerilogGraph:
         self.__prime_ip = []
         self.__prime_op = []
     
-    def __convertToBinaryStr(self, hex_str, blck_id):
+    def __convertToBinaryStr(self, hex_str):
         """
             Converts a hexadecimal string of n length to binary string of 4*n length
 
@@ -152,7 +162,7 @@ class VerilogGraph:
         """
         # Eliminating basic outlier conditions
         if (len(inputs) == 1 and len(config) == 1):
-            self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config, cfg_id)[::-1]]
+            self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config)[::-1]]
             return
         if (len(inputs) <= 2 and len(config) != 1) or (len(config) != 2**(len(inputs) - 2)):
             print('Configuration string and number of inputs do not match. No node added.')
@@ -161,7 +171,7 @@ class VerilogGraph:
             print('cfg_id already exists. No node added.')
             return
         
-        self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config, cfg_id)[::-1]]
+        self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config)[::-1]]
     
     def addAriBlck(self, ari_id, inputs, outputs, config):
         """
@@ -200,8 +210,11 @@ class VerilogGraph:
         if(len(config) != 5):
             print('Invalid length of configuration string. No node added.')
             return
+        if ari_id in self.dGrph:
+            print('ari_id already exists. No node added.')
+            return
 
-        self.dGrph[ari_id] = [tuple(inputs), [[outputs[0], None], [outputs[1], None], [outputs[2], None]], self.__convertToBinaryStr(config, ari_id)[::-1]]
+        self.dGrph[ari_id] = [tuple(inputs), [[outputs[0], None], [outputs[1], None], [outputs[2], None]], self.__convertToBinaryStr(config)[::-1]]
 
     def addTribuf(self, tribuf_id, ip, ctrl, op):
         """
@@ -225,6 +238,129 @@ class VerilogGraph:
             
         self.dGrph[tribuf_id] = [(ip, ctrl), [ctrl], [op, None]]
 
+    def __addGate(self, gate_id, gate_type, inputs, output):
+        """
+            Adds a node of type:
+                - and_gate to the graph if gate_type is 'A'
+                - or_gate to the graph if gate_type is 'O'
+
+            Parameters
+            ----------
+            gate_id : str
+                Identifier for the gate node.
+            gate_type : char
+                Should be either 'A' (for and_gate) or 'O' (for or_gate)
+            inputs : list/tuple
+                n-sized list/tuple of string identifiers representing input
+                to the gate.
+            output : str
+                String identifier of the output of the gate
+        """
+        # Eliminating basic outlier conditions
+        if(gate_type not in ['A', 'O']):
+            print('Invalid gate_type. No node added.')
+            return
+        if gate_id in self.dGrph:
+            print('gate_id already exists. No node added.')
+            return
+        if not len(inputs) >= 2:
+            print('Cannot add a gate with less than 2 inputs. No node added.')
+            return
+        
+        self.dGrph[gate_id] = [tuple(inputs), [gate_type, output, None]]
+
+    def triplicateBlck(self, blck_id):
+        """
+            Triplicates a given blck_id in accordance to TMR approach
+
+            Parameters
+            ----------
+            blck_id : str
+                String identifier of the blck to triplicate
+        """
+        # Eliminating basic outlier conditions
+        if blck_id not in self.dGrph:
+            print('blck_id: ', blck_id, ' does not exist. Triplication aborted.')
+            return
+
+        # identifying the type of block and triplicating
+        test = len(self.dGrph[blck_id][1])
+        if test == 3:    # ari block
+            ip = self.dGrph[blck_id][0]
+            config = self.dGrph[blck_id][2]
+            new_ids = [blck_id+'_tripd780', blck_id+'_tripd781', blck_id+'_tripd782']
+            new_ops = []
+            for i in range(3):
+                temp_op = []
+                for original_op in self.dGrph[blck_id][1]:
+                    temp_op.append([original_op[0]+'_trip728'+str(i), None])
+                new_ops.append(temp_op)
+
+            self.dGrph[new_ids[0]] = [ip, new_ops[0], config]
+            self.dGrph[new_ids[1]] = [ip, new_ops[1], config]
+            self.dGrph[new_ids[2]] = [ip, new_ops[2], config]
+
+            # for first output
+            self.__addGate(new_ids[0]+'_and0', 'A', [new_ops[0][0][0], new_ops[1][0][0]], new_ids[0]+'_and0_o')
+            self.__addGate(new_ids[1]+'_and0', 'A', [new_ops[0][0][0], new_ops[2][0][0]], new_ids[1]+'_and0_o')
+            self.__addGate(new_ids[2]+'_and0', 'A', [new_ops[1][0][0], new_ops[2][0][0]], new_ids[2]+'_and0_o')
+
+            self.__addGate(new_ids[0]+'_or0', 'O', [new_ids[0]+'_and0_o', new_ids[1]+'_and0_o', new_ids[2]+'_and0_o'], self.dGrph[blck_id][1][0][0])
+
+            # for second output
+            self.__addGate(new_ids[0]+'_and1', 'A', [new_ops[0][1][0], new_ops[1][1][0]], new_ids[0]+'_and1_o')
+            self.__addGate(new_ids[1]+'_and1', 'A', [new_ops[0][1][0], new_ops[2][1][0]], new_ids[1]+'_and1_o')
+            self.__addGate(new_ids[2]+'_and1', 'A', [new_ops[1][1][0], new_ops[2][1][0]], new_ids[2]+'_and1_o')
+
+            self.__addGate(new_ids[0]+'_or1', 'O', [new_ids[0]+'_and1_o', new_ids[1]+'_and1_o', new_ids[2]+'_and1_o'], self.dGrph[blck_id][1][1][0])
+
+            # for third output
+            self.__addGate(new_ids[0]+'_and2', 'A', [new_ops[0][2][0], new_ops[1][2][0]], new_ids[0]+'_and2_o')
+            self.__addGate(new_ids[1]+'_and2', 'A', [new_ops[0][2][0], new_ops[2][2][0]], new_ids[1]+'_and2_o')
+            self.__addGate(new_ids[2]+'_and2', 'A', [new_ops[1][2][0], new_ops[2][2][0]], new_ids[2]+'_and2_o')
+
+            self.__addGate(new_ids[0]+'_or2', 'O', [new_ids[0]+'_and2_o', new_ids[1]+'_and2_o', new_ids[2]+'_and2_o'], self.dGrph[blck_id][1][2][0])
+
+            del self.dGrph[blck_id]
+
+        elif test == 2:  # cfg block
+            ip = self.dGrph[blck_id][0]
+            config = self.dGrph[blck_id][2]
+            new_ids = [blck_id+'_tripd780', blck_id+'_tripd781', blck_id+'_tripd782']
+            new_ops =  [[self.dGrph[blck_id][2][0] + '_trip7280', None], [self.dGrph[blck_id][2][0] + '_trip7281', None], [self.dGrph[blck_id][2][0] + '_trip7282', None]]
+
+            self.dGrph[new_ids[0]] = [ip, new_ops[0], config]
+            self.dGrph[new_ids[1]] = [ip, new_ops[1], config]
+            self.dGrph[new_ids[2]] = [ip, new_ops[2], config]
+
+            self.__addGate(new_ids[0]+'_and0', 'A', [new_ops[0][0], new_ops[1][0]], new_ids[0]+'_and0_o')
+            self.__addGate(new_ids[1]+'_and0', 'A', [new_ops[0][0], new_ops[2][0]], new_ids[1]+'_and0_o')
+            self.__addGate(new_ids[2]+'_and0', 'A', [new_ops[1][0], new_ops[2][0]], new_ids[2]+'_and0_o')
+
+            self.__addGate(new_ids[0]+'_or0', 'O', [new_ids[0]+'_and0_o', new_ids[1]+'_and0_o', new_ids[2]+'_and0_o'], self.dGrph[blck_id][1][0])
+
+            del self.dGrph[blck_id]
+
+        elif test == 1:  # tribuf
+            ip = self.dGrph[blck_id][0]
+            new_ids = [blck_id+'_tripd780', blck_id+'_tripd781', blck_id+'_tripd782']
+            new_ops =  [[self.dGrph[blck_id][2][0] + '_trip7280', None], [self.dGrph[blck_id][2][0] + '_trip7281', None], [self.dGrph[blck_id][2][0] + '_trip7282', None]]
+
+            self.dGrph[new_ids[0]] = [ip, [ip[1]], new_ops[0]]
+            self.dGrph[new_ids[1]] = [ip, [ip[1]], new_ops[1]]
+            self.dGrph[new_ids[2]] = [ip, [ip[1]], new_ops[2]]
+
+            self.__addGate(new_ids[0]+'_and0', 'A', [new_ops[0][0], new_ops[1][0]], new_ids[0]+'_and0_o')
+            self.__addGate(new_ids[1]+'_and0', 'A', [new_ops[0][0], new_ops[2][0]], new_ids[1]+'_and0_o')
+            self.__addGate(new_ids[2]+'_and0', 'A', [new_ops[1][0], new_ops[2][0]], new_ids[2]+'_and0_o')
+
+            self.__addGate(new_ids[0]+'_or0', 'O', [new_ids[0]+'_and0_o', new_ids[1]+'_and0_o', new_ids[2]+'_and0_o'], self.dGrph[blck_id][1][0])
+
+            del self.dGrph[blck_id]
+        
+        else:
+            print('Unknown error!!!!!!\n')
+            
     def listPrimeIos(self, show_bit_value = False):
         """
             Parameters
@@ -234,15 +370,17 @@ class VerilogGraph:
             Returns
             -------
             default: List of tuples in format (prime_io-node-IDs, io_type).
-            if show_bit_value is True: List of tuples in format (prime_io-node-IDs, io_type, [1 | 0]).
+            if show_bit_value is True: List of tuples in format (prime_io-node-IDs, io_type, [1 | 0 | Z]).
         """
         lst = []
         for key in self.dGrph:
             if len(self.dGrph[key]) == 2:
-                if show_bit_value:
-                    lst.append((key, self.dGrph[key][0], self.dGrph[key][1]))
-                else:
-                    lst.append((key, self.dGrph[key][0]))
+                # eliminating gate-nodes
+                if len(self.dGrph[key][0]) == 1:
+                    if show_bit_value:
+                        lst.append((key, self.dGrph[key][0], self.dGrph[key][1]))
+                    else:
+                        lst.append((key, self.dGrph[key][0]))
         return lst
 
     def printPrimeIos(self, show_bit_value = False):
@@ -403,6 +541,47 @@ class VerilogGraph:
             for node in tribufs:
                 print(node[0], ' - ', node[1][0], ' - ', node[1][1], ' - ', node[2])
 
+    def listGates(self, show_bit_value = False):
+        """
+            Parameters
+            ----------
+            show_bit_value : boolean (default: False)
+                If set True, also returns bit value (0 | 1) for each of the node.
+            Returns
+            -------
+            default: List of tuples in format (gate-ID, gate_type, gate-inputs, gate-output).
+            if show_bit_value is True: List of tuples in format (gate-ID, gate_type, gate-inputs, gate-output, output-value: [1|0|Z]).
+        """
+        lst = []
+        for key in self.dGrph:
+            if len(self.dGrph[key]) == 2:
+                # eliminating primeIo node
+                if len(self.dGrph[key][0]) >= 2:
+                    if show_bit_value:
+                        lst.append((key, self.dGrph[key][1][0], self.dGrph[key][0], self.dGrph[key][1][1], self.dGrph[key][1][2]))
+                    else:
+                        lst.append((key, self.dGrph[key][1][0], self.dGrph[key][0], self.dGrph[key][1][1]))
+        return lst
+
+    def printGates(self, show_bit_value = False):
+        """
+            Prints the list of gate nodes in the graph.
+
+            Parameters
+            ----------
+            show_bit_value : boolean (default: False)
+                If set True, also prints bit value of each node.
+        """
+        gates = self.listGates(show_bit_value = show_bit_value)
+        if show_bit_value:
+            print('Node ID --- Gate Type --- Inputs --- Output --- OutputValue')
+            for node in gates:
+                print(node[0], ' --- ', node[1], ' --- ', node[2], ' --- ', node[3], ' --- ', node[4])
+        else:
+            print('Node ID --- Gate Type --- Inputs --- Output')
+            for node in gates:
+                print(node[0], ' --- ', node[1], ' --- ', node[2], ' --- ', node[3])
+
     def listIntermediateOps(self, show_bit_value = False):
         """
             Parameters
@@ -418,12 +597,12 @@ class VerilogGraph:
                 (inter_op, blck_of_origin, [1|0|Z]).
         """
         lst = []
-        prime_ios = [io[0] for io in self.listPrimeIos() if io[1] == 'i']
+        prime_ips = [io[0] for io in self.listPrimeIos() if io[1] == 'i']
 
         # obtaining intermediate outputs of each configuration block
         cfg_blcks = self.listCfgBlcks(show_bit_value)
         for cfg in cfg_blcks:
-            if cfg[3][0] not in prime_ios:
+            if cfg[3][0] not in prime_ips:
                 if show_bit_value:
                     lst.append((cfg[3][0], cfg[0], cfg[3][1]))
                 else:
@@ -433,20 +612,29 @@ class VerilogGraph:
         ari_blcks = self.listAriBlcks(show_bit_value)
         for ari in ari_blcks:
             for ari_op in ari[3]:
-                if ari_op[0] not in prime_ios:
+                if ari_op[0] not in prime_ips:
                     if show_bit_value:
                         lst.append((ari_op[0], ari[0], ari_op[1]))
                     else:
                         lst.append((ari_op[0], ari[0]))
         
         # obtaining intermediate outputs of each tribuf
-        tribufs = self.listTribufs(show_bit_value)
-        for tri in tribufs:
-            if tri[2][0] not in prime_ios:
+        blcks = self.listTribufs(show_bit_value)
+        for tri in blcks:
+            if tri[2][0] not in prime_ips:
                 if show_bit_value:
                     lst.append((tri[2][0], tri[0], tri[2][1]))
                 else:
                     lst.append((tri[2][0], tri[0]))
+        
+        # obtaining intermediate outputs of each gate
+        blcks = self.listGates(show_bit_value)
+        for gate in blcks:
+            if gate[3] not in prime_ips:
+                if show_bit_value:
+                    lst.append((gate[3], gate[0], gate[4]))
+                else:
+                    lst.append((gate[3], gate[0]))
 
         return lst
 
@@ -538,21 +726,26 @@ class VerilogGraph:
             self.dGrph[prime_op][1] = None
 
         # setting cfg_blck output values to None
-        cfg_blck_ids = [blck[0] for blck in self.listCfgBlcks()]
-        for cfg_id in cfg_blck_ids:
+        blck_ids = [blck[0] for blck in self.listCfgBlcks()]
+        for cfg_id in blck_ids:
             self.dGrph[cfg_id][1][1] = None
         
         # setting ari_blck output values to None
-        ari_blck_ids = [blck[0] for blck in self.listAriBlcks()]
-        for ari_id in ari_blck_ids:
+        blck_ids = [blck[0] for blck in self.listAriBlcks()]
+        for ari_id in blck_ids:
             self.dGrph[ari_id][1][0][1] =  None
             self.dGrph[ari_id][1][1][1] =  None
             self.dGrph[ari_id][1][2][1] =  None
         
         # setting tribuf output values to None
-        tribuf_ids = [blck[0] for blck in self.listTribufs()]
-        for tri_id in tribuf_ids:
+        blck_ids = [blck[0] for blck in self.listTribufs()]
+        for tri_id in blck_ids:
             self.dGrph[tri_id][2][1] = None
+        
+        # setting gate output values to None
+        blck_ids = [blck[0] for blck in self.listGates()]
+        for gate_id in blck_ids:
+            self.dGrph[gate_id][1][2] = None
 
     def __processCfgBlck(self, blck_id, ip_str):
         """
@@ -573,7 +766,6 @@ class VerilogGraph:
             if len(ip_str) == 1:
                 self.dGrph[blck_id][1][1] = int(ip_str, 2)
             else:
-                print(blck_id, self.dGrph[blck_id][2])
                 self.dGrph[blck_id][1][1] = self.dGrph[blck_id][2][int(ip_str, 2)]
 
         # update primary output if current block's output is primary output
@@ -635,6 +827,17 @@ class VerilogGraph:
         pass  
     
     def __processTribuf(self, blck_id, ip_str):
+        """
+            Processes the tribuf blocks and sets the values of each output node.
+            Note: This function should only be called from __processBlcks()
+
+            Parameters
+            ----------
+            blck_id : str
+                Identifier of the block
+            ip_str : str
+                String of input values
+        """
         if ip_str[1] == '1':
             self.dGrph[blck_id][2][1] = ip_str[0]
         else:
@@ -644,9 +847,46 @@ class VerilogGraph:
         if self.dGrph[blck_id][2][0] in self.__prime_op:
             self.dGrph[self.dGrph[blck_id][2][0]][1] = self.dGrph[blck_id][2][1]
 
+    def __processGates(self, blck_id, ip_str):
+        """
+            Processes the gate blocks and sets the values of each output node.
+            Note: This function should only be called from __processBlcks()
+
+            Parameters
+            ----------
+            blck_id : str
+                Identifier of the block
+            ip_str : str
+                String of input values
+        """
+        # Outlier check for Z state in input string
+        if 'Z' in ip_str:
+            self.dGrph[blck_id][1][2] = 'Z'
+        else:
+            # converting input bit stream to boolean variables for processing
+            ip_bool = []
+            for ip in ip_str:
+                ip_bool.append(self.__charToBool(ip))
+
+            if self.dGrph[blck_id][1][0] == 'A':
+                output = True
+                for x in ip_bool:
+                    output = output and x
+                self.dGrph[blck_id][1][2] = self.__boolToChar(output)
+            elif self.dGrph[blck_id][1][0] == 'O':
+                output = False
+                for x in ip_bool:
+                    output = output or x
+                self.dGrph[blck_id][1][2] = self.__boolToChar(output)
+
+        # update primary output if current block's output is primary output
+        if self.dGrph[blck_id][1][1] in self.__prime_op:
+            self.dGrph[self.dGrph[blck_id][1][1]][1] = self.dGrph[blck_id][1][2]
+
     def __processBlcks(self, blck_id):
         """
             Processes the blocks and sets the values of each output node.
+            Note: Should only be called by from simulate function and/or recursively.
 
             Parameters
             ----------
@@ -683,15 +923,18 @@ class VerilogGraph:
                             print('Input: ', ip, ' is not entered. Processing blck: ', all_ios[i][1])
                             # process the blck to get input
                             if(self.__processBlcks(all_ios[i][1])):
-                                test = len(self.dGrph[all_ios[i][1]][1])
-                                if test == 1:   # tribuf
-                                    ip_str += str(self.dGrph[all_ios[i][1]][2][1])
-                                elif test == 2: # cfg
-                                    ip_str += str(self.dGrph[all_ios[i][1]][1][1])
-                                elif test == 3: # ari
-                                    for op in self.dGrph[all_ios[i][1]][1]:
-                                        if op[0] == ip:
-                                            ip_str += str(op[1])
+                                if len(self.dGrph[all_ios[i][1]]) == 2: # gates
+                                    ip_str += str(self.dGrph[all_ios[i][1]][1][2])
+                                else:
+                                    test = len(self.dGrph[all_ios[i][1]][1])
+                                    if test == 1:   # tribuf
+                                        ip_str += str(self.dGrph[all_ios[i][1]][2][1])
+                                    elif test == 2: # cfg
+                                        ip_str += str(self.dGrph[all_ios[i][1]][1][1])
+                                    elif test == 3: # ari
+                                        for op in self.dGrph[all_ios[i][1]][1]:
+                                            if op[0] == ip:
+                                                ip_str += str(op[1])
                             else:
                                 print('Couldn\'t process blck: ', all_ios[i][1], '. Aborting processing blcks...')
                                 abort_processing = True
@@ -710,16 +953,19 @@ class VerilogGraph:
     
         # Calculating output
         # Differentiating between types of blocks
-        test = len(self.dGrph[blck_id][1])
-        if test == 3:    # ari block
-            self.__processAriBlck(blck_id, ip_str)
-        elif test == 2:  # cfg block
-            self.__processCfgBlck(blck_id, ip_str)
-        elif test == 1:  # tribuf
-            self.__processTribuf(blck_id, ip_str)
+        if len(self.dGrph[blck_id]) == 2: # gates
+            self.__processGates(blck_id, ip_str)
         else:
-            print('Unknown error!\n')
-            return False
+            test = len(self.dGrph[blck_id][1])
+            if test == 3:    # ari block
+                self.__processAriBlck(blck_id, ip_str)
+            elif test == 2:  # cfg block
+                self.__processCfgBlck(blck_id, ip_str)
+            elif test == 1:  # tribuf
+                self.__processTribuf(blck_id, ip_str)
+            else:
+                print('Unknown error!\n')
+                return False
 
         return True
 
@@ -780,6 +1026,16 @@ class VerilogGraph:
                     print('Processed tribuf: ', tri_id)
                 else:
                     print('Some error in processing tribuf: ', tri_id)
+        
+        # iterating all gates
+        blck_ids = [blck[0] for blck in self.listGates()]
+
+        for gate_id in blck_ids:
+            if self.dGrph[gate_id][1][2] == None:
+                if(self.__processBlcks(gate_id)):
+                    print('Processed gate: ', gate_id)
+                else:
+                    print('Some error in processing gate: ', gate_id)
 
     def __randomStringGen(self, len):
         """
@@ -806,7 +1062,6 @@ if __name__ == '__main__':
     # outputs
     vg.addPrimeIo('o_1', 'o')
     vg.addPrimeIo('o_2', 'o')
-    vg.addPrimeIo('o_3', 'o')
 
     vg.addCfgBlck('cfg1', ('i_1', 'i_2', 'i_3'), 'cfg1_o', 'c2')
     vg.addCfgBlck('cfg2', ('i_4', 'cfg1_o', 'i_5'), 'cfg2_o', '57')
