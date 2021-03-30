@@ -30,6 +30,9 @@ class VerilogGraph:
         __prime_op : list
             list of primary outputs in the VerilogGraph. Private attribute used to
             better process blcks
+        __op_fanout : dictionary
+            Key represents a driving output (from a node) and the value is a list of 
+            size 'n' containing identifiers of fan out wires
 
         Methods
         -------
@@ -82,6 +85,7 @@ class VerilogGraph:
         self.dGrph = {}
         self.__prime_ip = []
         self.__prime_op = []
+        self.__op_fanout = {}
     
     def __convertToBinaryStr(self, hex_str):
         """
@@ -99,10 +103,14 @@ class VerilogGraph:
         final_bi_str = ''
         for c in hex_str:
             bi_str = bin(int(c, 16))[2:]
-            if not(len(bi_str)%4 == 0 and (len(hex_str)*4) == len(bi_str)):
-                final_bi_str += (4 - len(bi_str)%4)*'0' + bi_str
-            else:
-                final_bi_str = bi_str
+            if len(bi_str) != 4:
+                bi_str = (4 - len(bi_str)%4)*'0' + bi_str
+            final_bi_str += bi_str
+        
+        # sanity check
+        if not(len(final_bi_str)%4 == 0 and (len(hex_str)*4) == len(final_bi_str)):
+            print('Problem in hex2bi conversion')
+        
         return final_bi_str
 
     def addPrimeIo(self, io_id, io_type):
@@ -149,8 +157,9 @@ class VerilogGraph:
             inputs : list/tuple
                 n-sized list/tuple of string identifiers representing input
                 to the cfg_blck.
-            output : str
-                String identifier for the output.
+            output : list
+                List of identifiers for the output. The first element is the driving output and the rest of the elements
+                are fan out wire identifiers.
             config : str
                 String of length {if n>2: 2**(n-2); else 1} representing configuration in hexadecimal
                 of the cfg_blck.
@@ -161,8 +170,16 @@ class VerilogGraph:
             addCfgBlck('blck1', ['ip1', 'ip2', 'ip3'], 'out_1', '1c')
         """
         # Eliminating basic outlier conditions
+        if not isinstance(output, (list)):
+            print("Please enter the output identifier as a list.")
+            return
         if (len(inputs) == 1 and len(config) == 1):
-            self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config)[::-1]]
+            self.dGrph[cfg_id] = [tuple(inputs), [output[0], None], self.__convertToBinaryStr(config)[::-1]]
+            if len(output) != 1:
+                if output[0] not in self.__op_fanout:
+                    self.__op_fanout[output[0]] = output[1:]
+                else:
+                    print("Duplicate driving output")
             return
         if (len(inputs) <= 2 and len(config) != 1) or (len(config) != 2**(len(inputs) - 2)):
             print('Configuration string and number of inputs do not match. No node added.')
@@ -171,7 +188,12 @@ class VerilogGraph:
             print('cfg_id already exists. No node added.')
             return
         
-        self.dGrph[cfg_id] = [tuple(inputs), [output, None], self.__convertToBinaryStr(config)[::-1]]
+        self.dGrph[cfg_id] = [tuple(inputs), [output[0], None], self.__convertToBinaryStr(config)[::-1]]
+        if len(output) != 1:
+                if output[0] not in self.__op_fanout:
+                    self.__op_fanout[output[0]] = output[1:]
+                else:
+                    print("Duplicate driving output")
     
     def addAriBlck(self, ari_id, inputs, outputs, config):
         """
@@ -215,6 +237,7 @@ class VerilogGraph:
             return
 
         self.dGrph[ari_id] = [tuple(inputs), [[outputs[0], None], [outputs[1], None], [outputs[2], None]], self.__convertToBinaryStr(config)[::-1]]
+        # print(self.__convertToBinaryStr(config), ari_id)
 
     def addTribuf(self, tribuf_id, ip, ctrl, op):
         """
@@ -771,6 +794,15 @@ class VerilogGraph:
         # update primary output if current block's output is primary output
         if self.dGrph[blck_id][1][0] in self.__prime_op:
             self.dGrph[self.dGrph[blck_id][1][0]][1] = self.dGrph[blck_id][1][1]
+        
+        # update fan out outputs
+        if self.dGrph[blck_id][1][0] in self.__op_fanout:
+            for fanOp in self.__op_fanout[self.dGrph[blck_id][1][0]]:
+                # sanity check
+                if fanOp in self.__prime_op:
+                    self.dGrph[fanOp][1] = self.dGrph[blck_id][1][1]
+                else:
+                    print("Sanity check failed.")
 
     def __processAriBlck(self, blck_id, ip_str):
         """
@@ -1063,8 +1095,8 @@ if __name__ == '__main__':
     vg.addPrimeIo('o_1', 'o')
     vg.addPrimeIo('o_2', 'o')
 
-    vg.addCfgBlck('cfg1', ('i_1', 'i_2', 'i_3'), 'cfg1_o', 'c2')
-    vg.addCfgBlck('cfg2', ('i_4', 'cfg1_o', 'i_5'), 'cfg2_o', '57')
+    vg.addCfgBlck('cfg1', ('i_1', 'i_2', 'i_3'), ['cfg1_o'], 'c2')
+    vg.addCfgBlck('cfg2', ('i_4', 'cfg1_o', 'i_5'), ['cfg2_o'], '57')
 
     vg.addAriBlck('ari1', ['i_1', 'cfg1_o', 'tri1_op', 'cfg1_o', 'cfg2_o'], ['ari1_y', 'ari1_s', 'o_2'], 'A5D21')
     vg.addAriBlck('ari2', ['tri2_op', 'cfg2_o', 'i_5', 'i_3', 'i_4'], ['ari2_y', 'o_1', 'ari2_fco'], 'EC9B5')

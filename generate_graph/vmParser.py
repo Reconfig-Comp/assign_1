@@ -117,7 +117,7 @@ class Parser:
         '''
         Parses the file line by line
         '''
-        print('Reading file for the second time', self.lineNo)
+        # print('Reading file for the second time', self.lineNo)
         while 1:
 
            # if the end of the file is reached, break
@@ -148,7 +148,7 @@ class Parser:
                 self.lineData = re.split('[=h;\n]', self.fData[self.lineNo])
                 self.__mapIO(self.CFGio)
                 #print(len([self.CFGio[i] for i in range(len(self.CFGio)-1)]))
-                self.graph.addCfgBlck(self.module, [self.CFGio[i] for i in range(len(self.CFGio)-1)], self.CFGio[len(self.CFGio)-1], self.lineData[2])
+                self.graph.addCfgBlck(self.module, [self.CFGio[i] for i in range(len(self.CFGio)-1)], [self.CFGio[len(self.CFGio)-1]], self.lineData[2])
                 self.CFGio = []
 
             # if the first word of the line starts with 'ARI1', then this is the ARI1 module used in the program
