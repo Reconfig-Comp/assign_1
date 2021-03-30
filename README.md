@@ -3,6 +3,10 @@
 ### Objective
 1. **Assignment 1:** Parse the VM file and generate a biparted graph.
 2. **Assignment 2:** Simulate graph
+3. **Assignment 3:** Simulate using TMR approach
+    - Select a specific node from a graph.
+    - Duplicate the node by using TMR approach
+    - Insert the majority voter at the output
 #### Authors
 | Roll No. | Name |
 | --- | --- |

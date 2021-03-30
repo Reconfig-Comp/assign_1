@@ -2,14 +2,14 @@
 
 The following image describes the node struture in a more elaborated manner:
 
-![verilog_graph](../multimedia/verilog_graph.png)
+![verilog_graph](../multimedia/verilog_graph.jpg)
 
 ### Simulation algorithm
 Before performing simulation, all the primary input values must be set to [1 | 0]. The member function of class `VerilogGraph` - `simulate` processes all the block nodes present in the dictionary and calculates the output value based on the type of block. This method executes a private method - `__processCBlck` for each block whose output value is unknown. The following flowchart depicts the algorithm of `__processBlck`:
 
-![processCfgBlcks_algo](../multimedia/processBlcks_algo.png)
+![processCfgBlcks_algo](../multimedia/processBlcks_algo.jpg)
 
-### Example
+### Example for assignment 1 and 2
 ![example_graph](../multimedia/example_graph.png)
 - Each block - circle and rectangle represent a node.
 - The values written within the blocks are stored as value(s) for each key.
@@ -67,5 +67,19 @@ vg.printTribufs(True)
 ```
 
 ![example_op](../multimedia/example_op.png)
+
+### Example for assignment 3
+![example_graph](../multimedia/example_graph.jpg)
+
+### Output obtained
+The following output is obtained by running the example code written for unit testing module `graph_util.py`:
+#### Pre-triplication nodes and simulation output
+![pre_trip_sim](../multimedia/pre_trip_sim.png)
+
+#### Post-triplication nodes
+![post_trip_nodes](../multimedia/post_trip_nodes.png)
+
+#### Post-triplication simulation output
+![post_trip_sim](../multimedia/post_trip_sim.png)
 
 [Back to home](../README.md)
