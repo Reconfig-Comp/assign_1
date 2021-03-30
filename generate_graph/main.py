@@ -10,7 +10,7 @@ import os
 if __name__ == '__main__':
 
     # Relative path 
-    relativePath = '/../test_cases/vm_files/c6288.vm'
+    relativePath = '/../test_cases/vm_files/c2670.vm'
 
     # Absolute file path
     filepath = os.getcwd() + relativePath
